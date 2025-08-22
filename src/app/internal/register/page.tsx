@@ -54,22 +54,25 @@ export default function InternalRegisterPage() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      if (user) {
-        await updateProfile(user, { displayName: name });
-        // Save user data to Firestore
-        await setDoc(doc(db, "users", user.uid), {
-            name: name,
-            email: email,
-            role: "Gestor", // Default role
-            lastLogin: new Date().toISOString().split('T')[0],
-        });
-      }
+      
+      // La información del perfil se actualiza en Auth
+      await updateProfile(user, { displayName: name });
+      
+      // La información adicional se guarda en Firestore
+      // La regla de seguridad clave es: allow write: if request.auth.uid == userId;
+      await setDoc(doc(db, "users", user.uid), {
+          name: name,
+          email: email,
+          role: "Gestor", // Rol por defecto para usuarios internos
+          lastLogin: new Date().toISOString().split('T')[0],
+      });
+      
       router.push('/internal/dashboard');
     } catch (error: any) {
        toast({
         variant: "destructive",
         title: "Error de registro",
-        description: error.message,
+        description: `Por favor, revisa las reglas de seguridad de Firestore. El error fue: ${error.message}`,
       });
     } finally {
       setLoading(false);
