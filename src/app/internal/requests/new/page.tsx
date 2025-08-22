@@ -13,6 +13,7 @@ import {
   Tablet,
   Calculator,
   ScanLine,
+  FileSignature,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,28 +36,36 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import Link from "next/link";
+import { format } from "date-fns";
 
 const steps = [
   { id: 1, title: "Verificación de Identidad" },
   { id: 2, title: "Verificación Telefónica" },
   { id: 3, title: "Detalles del Financiamiento" },
   { id: 4, title: "Enlace MDM" },
-  { id: 5, title: "Confirmación" },
+  { id: 5, title: "Contrato y Firma" },
 ];
 
 export default function NewRequestPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [itemType, setItemType] = useState<string | undefined>();
-  const [itemValue, setItemValue] = useState(0);
+  const [itemValue, setItemValue] = useState(500);
   const [initialPercentage, setInitialPercentage] = useState(30);
   const [installments, setInstallments] = useState(6);
+  const [requestDate] = useState(new Date());
 
   const initialPayment = itemValue * (initialPercentage / 100);
   const financingAmount = itemValue - initialPayment;
   const interestRate = 0.1268;
-  const totalInterest = financingAmount * interestRate * installments;
+  const totalInterest = financingAmount * interestRate;
   const totalToPay = financingAmount + totalInterest;
   const biweeklyPayment = financingAmount > 0 ? totalToPay / installments : 0;
+
+  const paymentDates = Array.from({ length: installments }, (_, i) => {
+    const date = new Date(requestDate);
+    date.setDate(date.getDate() + (i + 1) * 15);
+    return format(date, "dd/MM/yyyy");
+  });
 
   const progress = (currentStep / steps.length) * 100;
 
@@ -75,7 +84,7 @@ export default function NewRequestPage() {
           </div>
           <Progress value={progress} className="w-full" />
         </CardHeader>
-        <CardContent className="min-h-[400px]">
+        <CardContent className="min-h-[450px]">
           {currentStep === 1 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
               <div className="space-y-4">
@@ -230,8 +239,8 @@ export default function NewRequestPage() {
                     <span>{installments} Quincenales</span>
                   </div>
                   <div className="flex justify-between text-muted-foreground">
-                    <span>Tasa de Interés:</span>
-                    <span>12.68% Quincenal</span>
+                    <span>Tasa de Interés Fija:</span>
+                    <span>12.68%</span>
                   </div>
                    <div className="flex justify-between text-muted-foreground">
                     <span>Total Intereses:</span>
@@ -264,23 +273,38 @@ export default function NewRequestPage() {
           )}
 
           {currentStep === 5 && (
-            <div className="flex flex-col items-center justify-center text-center space-y-4">
-              <CheckCircle className="h-16 w-16 text-green-500" />
-              <CardTitle className="text-3xl">Solicitud Lista</CardTitle>
-              <CardDescription className="max-w-md">
-                Se ha completado el formulario de solicitud. Revisa la
-                información y envíala para su procesamiento.
-              </CardDescription>
-              <div className="rounded-lg border bg-card p-4 text-left w-full max-w-md">
-                <h3 className="font-semibold mb-2">Resumen</h3>
-                 <p><strong>Cliente:</strong> V-12.345.678</p>
-                 <p><strong>Teléfono:</strong> +58 412-1234567</p>
-                 <p><strong>Artículo:</strong> Teléfono</p>
-                 <p><strong>IMEI:</strong> 358494081234567</p>
-                 <p><strong>Valor:</strong> ${itemValue.toFixed(2)}</p>
-                 <p><strong>Inicial:</strong> ${initialPayment.toFixed(2)}</p>
-                 <p><strong>Cuota Quincenal:</strong> ${biweeklyPayment.toFixed(2)}</p>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+               <div>
+                <CardTitle className="flex items-center mb-4">
+                    <FileSignature className="mr-2" /> Contrato de Financiamiento
+                </CardTitle>
+                <div className="border rounded-lg p-4 h-[350px] overflow-y-auto text-sm space-y-4 bg-muted/50">
+                    <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy")}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente con C.I. <strong>V-12.345.678</strong>.</p>
+                    <p>El cliente solicita el financiamiento de un <strong>{itemType === 'phone' ? 'Teléfono' : 'Tablet'}</strong> valorado en <strong>${itemValue.toFixed(2)}</strong>.</p>
+                    <p>El cliente se compromete a pagar una inicial de <strong>${initialPayment.toFixed(2)}</strong> ({initialPercentage}%) en la fecha de hoy.</p>
+                    <p>El monto restante de <strong>${financingAmount.toFixed(2)}</strong> más los intereses de <strong>${totalInterest.toFixed(2)}</strong> (Tasa: {interestRate*100}%) será pagado en <strong>{installments} cuotas quincenales</strong> de <strong>${biweeklyPayment.toFixed(2)}</strong> cada una.</p>
+                    
+                    <div>
+                        <h4 className="font-semibold mb-2">Calendario de Pagos:</h4>
+                        <ul className="list-disc pl-5">
+                            {paymentDates.map((date, i) => (
+                                <li key={i}>Cuota {i+1}: {date}</li>
+                            ))}
+                        </ul>
+                    </div>
+                     <p className="pt-4">La falta de pago resultará en el bloqueo del equipo con IMEI <strong>358494081234567</strong> a través del sistema MDM.</p>
+                </div>
+               </div>
+               <div className="space-y-4">
+                 <CardTitle>Firma del Cliente</CardTitle>
+                 <CardDescription>El cliente debe firmar en el recuadro para aceptar los términos del contrato.</CardDescription>
+                 <div className="w-full h-48 bg-white rounded-lg border-2 border-dashed flex items-center justify-center">
+                    <p className="text-muted-foreground">Área de firma digital</p>
+                 </div>
+                 <Button className="w-full">
+                    <CheckCircle className="mr-2" /> Aceptar y Firmar Contrato
+                 </Button>
+               </div>
             </div>
           )}
         </CardContent>
@@ -306,7 +330,7 @@ export default function NewRequestPage() {
             {currentStep === steps.length && (
               <Button asChild>
                 <Link href="/internal/requests">
-                    <CheckCircle className="mr-2" /> Enviar Solicitud
+                    <CheckCircle className="mr-2" /> Completar Solicitud
                 </Link>
               </Button>
             )}
@@ -316,5 +340,3 @@ export default function NewRequestPage() {
     </div>
   );
 }
-
-    
