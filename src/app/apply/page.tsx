@@ -16,6 +16,7 @@ import {
   ScanLine,
   FileSignature,
   Trash2,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,15 +41,35 @@ import { Slider } from "@/components/ui/slider";
 import Link from "next/link";
 import { format } from "date-fns";
 
+const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+    <circle cx="12" cy="12" r="2" fill="currentColor" />
+  </svg>
+);
+
+
 const steps = [
   { id: 1, title: "Verificación de Identidad" },
   { id: 2, title: "Verificación Telefónica" },
   { id: 3, title: "Detalles del Financiamiento" },
-  { id: 4, title: "Enlace MDM" },
-  { id: 5, title: "Contrato y Firma" },
+  { id: 4, title: "Contrato y Firma" },
+  { id: 5, title: "Finalizar y Registrarse" },
 ];
 
-export default function NewRequestPage() {
+export default function ApplyPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [itemType, setItemType] = useState<string | undefined>();
   const [itemValue, setItemValue] = useState(500);
@@ -82,8 +103,15 @@ export default function NewRequestPage() {
 
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <Card>
+     <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
+        <div className="mb-6 text-center">
+             <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
+                <AlzaIcon className="h-8 w-8" />
+            </div>
+            <h1 className="text-3xl font-bold">Solicitud de Financiamiento</h1>
+            <p className="text-muted-foreground">Sigue los pasos para completar tu solicitud.</p>
+        </div>
+      <Card className="w-full max-w-3xl">
         <CardHeader>
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-medium text-muted-foreground">
@@ -96,10 +124,9 @@ export default function NewRequestPage() {
           {currentStep === 1 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
               <div className="space-y-4">
-                <CardTitle>Identificación del Cliente</CardTitle>
+                <CardTitle>Tu Identificación</CardTitle>
                 <CardDescription>
-                  Ingresa el número de cédula del solicitante y sube las fotos
-                  requeridas.
+                  Ingresa tu número de cédula y sube las fotos requeridas.
                 </CardDescription>
                 <div className="space-y-2">
                   <Label htmlFor="cedula">Número de Cédula</Label>
@@ -108,13 +135,13 @@ export default function NewRequestPage() {
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Foto de la Cédula (Frente)</Label>
+                  <Label>Foto de tu Cédula (Frente)</Label>
                   <Button variant="outline" className="w-full">
                     <Camera className="mr-2" /> Subir o Tomar Foto
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  <Label>Selfie del Cliente</Label>
+                  <Label>Tómate una Selfie</Label>
                   <Button variant="outline" className="w-full">
                     <Camera className="mr-2" /> Subir o Tomar Foto
                   </Button>
@@ -128,11 +155,11 @@ export default function NewRequestPage() {
               <Phone className="h-12 w-12 text-primary" />
               <CardTitle>Verificación Telefónica</CardTitle>
               <CardDescription className="max-w-md">
-                Ingresa el número de teléfono del cliente para enviar un código
+                Ingresa tu número de teléfono para enviar un código
                 de verificación.
               </CardDescription>
               <div className="flex w-full max-w-sm items-center space-x-2">
-                <Input type="tel" placeholder="Número de teléfono" />
+                <Input type="tel" placeholder="Tu número de teléfono" />
                 <Button>Enviar Código</Button>
               </div>
               <div className="flex w-full max-w-xs items-center space-x-2 pt-4">
@@ -221,7 +248,7 @@ export default function NewRequestPage() {
                     max={100}
                     step={5}
                     value={[initialPercentage]}
-                    onValueChange={(value) => setInitialPercentage(value[0])}
+                    onValue-Change={(value) => setInitialPercentage(value[0])}
                   />
                 </div>
               </div>
@@ -258,35 +285,18 @@ export default function NewRequestPage() {
               </div>
             </div>
           )}
-          
-          {currentStep === 4 && (
-            <div className="flex flex-col items-center justify-center text-center space-y-4 pt-6">
-                <Smartphone className="h-12 w-12 text-primary" />
-                <CardTitle>Enlace con Sistema MDM</CardTitle>
-                <CardDescription className="max-w-md">
-                    Ingresa el IMEI del equipo para vincularlo a nuestro sistema de control y seguridad. Puedes escanear el código de barras de la caja.
-                </CardDescription>
-                <div className="flex w-full max-w-sm items-center space-x-2">
-                    <Input id="imei" placeholder="Ingresa el IMEI del equipo" />
-                    <Button variant="outline" size="icon">
-                        <ScanLine className="h-5 w-5" />
-                        <span className="sr-only">Escanear IMEI</span>
-                    </Button>
-                </div>
-            </div>
-          )}
 
-          {currentStep === 5 && (
+          {currentStep === 4 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
                <div>
                 <CardTitle className="flex items-center mb-4">
                     <FileSignature className="mr-2" /> Contrato de Financiamiento
                 </CardTitle>
                 <div className="border rounded-lg p-4 h-[350px] overflow-y-auto text-sm space-y-4 bg-muted/50">
-                    <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy")}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente con C.I. <strong>V-12.345.678</strong>.</p>
-                    <p>El cliente solicita el financiamiento de un <strong>{itemType === 'phone' ? 'Teléfono' : 'Tablet'}</strong> valorado en <strong>${itemValue.toFixed(2)}</strong>.</p>
-                    <p>El cliente se compromete a pagar una inicial de <strong>${initialPayment.toFixed(2)}</strong> ({initialPercentage}%) en la fecha de hoy.</p>
-                    <p>El monto restante de <strong>${financingAmount.toFixed(2)}</strong> será pagado en <strong>{installments} cuotas quincenales</strong> de aproximadamente <strong>${biweeklyPayment.toFixed(2)}</strong> cada una.</p>
+                    <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy")}, certifico que la información proporcionada es correcta y acepto los términos del financiamiento.</p>
+                    <p>Solicito el financiamiento de un <strong>{itemType === 'phone' ? 'Teléfono' : 'Tablet'}</strong> valorado en <strong>${itemValue.toFixed(2)}</strong>.</p>
+                    <p>Me comprometo a pagar una inicial de <strong>${initialPayment.toFixed(2)}</strong> ({initialPercentage}%) en la fecha de la compra.</p>
+                    <p>El monto restante de <strong>${financingAmount.toFixed(2)}</strong> más los intereses aproximados de <strong>${totalInterest.toFixed(2)}</strong> será pagado en <strong>{installments} cuotas quincenales</strong> de aproximadamente <strong>${biweeklyPayment.toFixed(2)}</strong> cada una.</p>
                     
                     <div>
                         <h4 className="font-semibold mb-2">Calendario de Pagos (Estimado):</h4>
@@ -296,18 +306,18 @@ export default function NewRequestPage() {
                             ))}
                         </ul>
                     </div>
-                     <p className="pt-4">La falta de pago resultará en el bloqueo del equipo con IMEI <strong>358494081234567</strong> a través del sistema MDM.</p>
+                     <p className="pt-4">Entiendo que la falta de pago resultará en el bloqueo del equipo a través del sistema de seguridad.</p>
                 </div>
                </div>
                <div className="space-y-4">
                  <div className="flex justify-between items-center">
-                    <CardTitle>Firma del Cliente</CardTitle>
+                    <CardTitle>Tu Firma</CardTitle>
                      <Button variant="ghost" size="sm" onClick={clearSignature}>
                         <Trash2 className="mr-2 h-4 w-4"/>
                         Limpiar
                      </Button>
                  </div>
-                 <CardDescription>El cliente debe firmar en el recuadro para aceptar los términos del contrato.</CardDescription>
+                 <CardDescription>Firma en el recuadro para aceptar los términos.</CardDescription>
                  <div className="w-full h-48 bg-white rounded-lg border-2 border-dashed">
                     <SignatureCanvas
                         ref={sigPad}
@@ -318,36 +328,58 @@ export default function NewRequestPage() {
                </div>
             </div>
           )}
+
+           {currentStep === 5 && (
+             <div className="flex flex-col items-center justify-center text-center space-y-4 pt-6">
+                <CheckCircle className="h-16 w-16 text-green-500" />
+                <CardTitle className="text-2xl">¡Solicitud Enviada!</CardTitle>
+                <CardDescription className="max-w-md">
+                    Tu solicitud ha sido recibida y está siendo procesada. Nuestro equipo se pondrá en contacto contigo pronto.
+                </CardDescription>
+                <CardDescription className="max-w-lg font-semibold pt-4">
+                    Para dar seguimiento al estado de tu solicitud, por favor crea una cuenta en nuestro portal.
+                </CardDescription>
+                <Button size="lg" asChild>
+                    <Link href="/register">
+                        <UserPlus className="mr-2" /> Crear Cuenta y ver Estado
+                    </Link>
+                </Button>
+            </div>
+          )}
+
         </CardContent>
         <CardFooter className="flex justify-between border-t pt-6">
           <div>
-            {currentStep > 1 && (
+            {currentStep > 1 && currentStep < 5 && (
               <Button variant="outline" onClick={prevStep}>
                 <ChevronLeft className="mr-2" /> Anterior
               </Button>
             )}
-             {currentStep === 5 && (
+             {currentStep === 1 && (
                  <Button variant="ghost" asChild>
-                    <Link href="/internal/requests">Cancelar</Link>
+                    <Link href="/login">Ya tengo una cuenta</Link>
                 </Button>
              )}
           </div>
           <div>
-            {currentStep < steps.length && (
+            {currentStep < 4 && (
               <Button onClick={nextStep}>
                 Siguiente <ChevronRight className="ml-2" />
               </Button>
             )}
-            {currentStep === steps.length && (
-              <Button asChild>
-                <Link href="/internal/requests">
-                    <CheckCircle className="mr-2" /> Completar Solicitud
-                </Link>
+            {currentStep === 4 && (
+              <Button onClick={nextStep}>
+                <CheckCircle className="mr-2" /> Enviar Solicitud
               </Button>
             )}
           </div>
         </CardFooter>
       </Card>
+        <div className="mt-4 text-center text-sm">
+            <Link href="/internal/login" className="underline text-muted-foreground">
+                Acceso Interno
+            </Link>
+        </div>
     </div>
   );
 }
