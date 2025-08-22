@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, Filter } from "lucide-react";
+import { Check, X, Filter, PlusCircle } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -69,23 +69,29 @@ export default function RequestsPage() {
                 Revisa y gestiona las solicitudes de los clientes.
                 </CardDescription>
             </div>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline">
-                        <Filter className="mr-2 h-4 w-4" />
-                        Filtrar por Estado
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Estado</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>Todas</DropdownMenuItem>
-                    <DropdownMenuItem>Pendiente de Aprobación</DropdownMenuItem>
-                    <DropdownMenuItem>En Revisión</DropdownMenuItem>
-                    <DropdownMenuItem>Aprobado</DropdownMenuItem>
-                    <DropdownMenuItem>Rechazado</DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2">
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline">
+                            <Filter className="mr-2 h-4 w-4" />
+                            Filtrar por Estado
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Estado</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>Todas</DropdownMenuItem>
+                        <DropdownMenuItem>Pendiente de Aprobación</DropdownMenuItem>
+                        <DropdownMenuItem>En Revisión</DropdownMenuItem>
+                        <DropdownMenuItem>Aprobado</DropdownMenuItem>
+                        <DropdownMenuItem>Rechazado</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Nueva Solicitud
+                </Button>
+            </div>
         </div>
       </CardHeader>
       <CardContent>
