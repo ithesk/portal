@@ -12,6 +12,7 @@ import {
   Smartphone,
   Tablet,
   Calculator,
+  ScanLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,7 +40,8 @@ const steps = [
   { id: 1, title: "Verificación de Identidad" },
   { id: 2, title: "Verificación Telefónica" },
   { id: 3, title: "Detalles del Financiamiento" },
-  { id: 4, title: "Confirmación" },
+  { id: 4, title: "Enlace MDM" },
+  { id: 5, title: "Confirmación" },
 ];
 
 export default function NewRequestPage() {
@@ -243,8 +245,25 @@ export default function NewRequestPage() {
               </div>
             </div>
           )}
-
+          
           {currentStep === 4 && (
+            <div className="flex flex-col items-center justify-center text-center space-y-4">
+                <Smartphone className="h-12 w-12 text-primary" />
+                <CardTitle>Enlace con Sistema MDM</CardTitle>
+                <CardDescription className="max-w-md">
+                    Ingresa el IMEI del equipo para vincularlo a nuestro sistema de control y seguridad. Puedes escanear el código de barras de la caja.
+                </CardDescription>
+                <div className="flex w-full max-w-sm items-center space-x-2">
+                    <Input id="imei" placeholder="Ingresa el IMEI del equipo" />
+                    <Button variant="outline" size="icon">
+                        <ScanLine className="h-5 w-5" />
+                        <span className="sr-only">Escanear IMEI</span>
+                    </Button>
+                </div>
+            </div>
+          )}
+
+          {currentStep === 5 && (
             <div className="flex flex-col items-center justify-center text-center space-y-4">
               <CheckCircle className="h-16 w-16 text-green-500" />
               <CardTitle className="text-3xl">Solicitud Lista</CardTitle>
@@ -257,6 +276,7 @@ export default function NewRequestPage() {
                  <p><strong>Cliente:</strong> V-12.345.678</p>
                  <p><strong>Teléfono:</strong> +58 412-1234567</p>
                  <p><strong>Artículo:</strong> Teléfono</p>
+                 <p><strong>IMEI:</strong> 358494081234567</p>
                  <p><strong>Valor:</strong> ${itemValue.toFixed(2)}</p>
                  <p><strong>Inicial:</strong> ${initialPayment.toFixed(2)}</p>
                  <p><strong>Cuota Quincenal:</strong> ${biweeklyPayment.toFixed(2)}</p>
@@ -271,7 +291,7 @@ export default function NewRequestPage() {
                 <ChevronLeft className="mr-2" /> Anterior
               </Button>
             )}
-             {currentStep === 4 && (
+             {currentStep === 5 && (
                  <Button variant="ghost" asChild>
                     <Link href="/internal/requests">Cancelar</Link>
                 </Button>
@@ -296,3 +316,5 @@ export default function NewRequestPage() {
     </div>
   );
 }
+
+    
