@@ -17,7 +17,8 @@ import {
   FileText,
   Package,
   Cog,
-  Loader
+  Loader,
+  UserCog,
 } from "lucide-react";
 
 import {
@@ -81,6 +82,7 @@ export default function InternalLayout({
     { href: "/internal/clients", icon: Users, label: "Clientes" },
     { href: "/internal/equipment", icon: Wrench, label: "Equipos" },
     { href: "/internal/products", icon: Package, label: "Productos" },
+    { href: "/internal/users", icon: UserCog, label: "Usuarios" },
     { href: "/internal/settings", icon: Cog, label: "Configuración" },
   ];
 
