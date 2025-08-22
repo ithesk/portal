@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -28,52 +29,48 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { collection, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-const products = [
-  {
-    id: "iphone-15",
-    name: "iPhone 15",
-    status: "Publicado",
-    imageUrl: "https://placehold.co/64x64.png",
-    aiHint: "iphone 15 white",
-    price: "45,000",
-    initialPayment: "13,500",
-    stock: 25,
-  },
-  {
-    id: "samsung-galaxy-s24",
-    name: "Samsung Galaxy S24",
-    status: "Publicado",
-    imageUrl: "https://placehold.co/64x64.png",
-    aiHint: "samsung galaxy s24",
-    price: "40,000",
-    initialPayment: "12,000",
-    stock: 15,
-  },
-  {
-    id: "ipad-air",
-    name: "iPad Air",
-    status: "Borrador",
-    imageUrl: "https://placehold.co/64x64.png",
-    aiHint: "ipad air",
-    price: "60,000",
-    initialPayment: "18,000",
-    stock: 0,
-  },
-   {
-    id: "xiaomi-redmi-note-13",
-    name: "Xiaomi Redmi Note 13",
-    status: "Publicado",
-    imageUrl: "https://placehold.co/64x64.png",
-    aiHint: "xiaomi redmi note 13",
-    price: "28,000",
-    initialPayment: "8,000",
-    stock: 50,
-  },
-];
+
+interface Product {
+  id: string;
+  name: string;
+  status: string;
+  imageUrl: string;
+  aiHint: string;
+  price: string;
+  initialPayment: string;
+  stock: number;
+}
 
 
 export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const querySnapshot = await getDocs(collection(db, "products"));
+      const productsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => {
+          const data = doc.data();
+          return {
+              id: doc.id,
+              name: data.name || "",
+              status: data.status || "Borrador",
+              imageUrl: data.imageUrl || "https://placehold.co/64x64.png",
+              aiHint: data.aiHint || "",
+              price: data.price || "0",
+              initialPayment: data.initialPayment || "0",
+              stock: data.stock || 0,
+          };
+      });
+      setProducts(productsData);
+    };
+
+    fetchProducts();
+  }, []);
+
+
   return (
     <Card>
       <CardHeader>

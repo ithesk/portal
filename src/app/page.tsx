@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
+import { useEffect, useState } from "react";
+import { collection, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -27,56 +30,56 @@ const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-
-const products = [
-  {
-    id: "iphone-15",
-    name: "iPhone 15",
-    popular: true,
-    imageUrl: "https://placehold.co/400x400.png",
-    aiHint: "iphone 15 white",
-    initialPayment: "13,500",
-    biweeklyPayment: "5,250",
-    totalPrice: "45,000",
-    currency: "RD$",
-  },
-  {
-    id: "samsung-galaxy-s24",
-    name: "Samsung Galaxy S24",
-    popular: false,
-    imageUrl: "https://placehold.co/400x400.png",
-    aiHint: "samsung galaxy s24",
-    initialPayment: "12,000",
-    biweeklyPayment: "4,800",
-    totalPrice: "40,000",
-    currency: "RD$",
-  },
-  {
-    id: "ipad-air",
-    name: "iPad Air",
-    popular: false,
-    imageUrl: "https://placehold.co/400x400.png",
-    aiHint: "ipad air",
-    initialPayment: "18,000",
-    biweeklyPayment: "7,000",
-    totalPrice: "60,000",
-    currency: "RD$",
-  },
-   {
-    id: "xiaomi-redmi-note-13",
-    name: "Xiaomi Redmi Note 13",
-    popular: false,
-    imageUrl: "https://placehold.co/400x400.png",
-    aiHint: "xiaomi redmi note 13",
-    initialPayment: "8,000",
-    biweeklyPayment: "3,000",
-    totalPrice: "28,000",
-    currency: "RD$",
-  },
-];
+interface Product {
+    id: string;
+    name: string;
+    popular: boolean;
+    imageUrl: string;
+    aiHint: string;
+    initialPayment: string;
+    biweeklyPayment: string;
+    totalPrice: string;
+    currency: string;
+}
 
 
 export default function StorePage() {
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "products"));
+        const productsData = querySnapshot.docs
+          .map((doc: QueryDocumentSnapshot<DocumentData>) => {
+              const data = doc.data();
+              // Ensure the document data matches the Product interface
+              if(data.status === "Publicado") {
+                return {
+                    id: doc.id,
+                    name: data.name || "",
+                    popular: data.popular || false,
+                    imageUrl: data.imageUrl || "https://placehold.co/400x400.png",
+                    aiHint: data.aiHint || "product image",
+                    initialPayment: data.initialPayment || "0",
+                    biweeklyPayment: data.biweeklyPayment || "0",
+                    totalPrice: data.price || "0",
+                    currency: data.currency || "RD$",
+                };
+              }
+              return null;
+          })
+          .filter((p): p is Product => p !== null);
+          
+        setProducts(productsData);
+      } catch (error) {
+        console.error("Error fetching products: ", error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
   return (
     <div className="flex min-h-screen w-full flex-col items-center bg-muted/40 p-4">
       <div className="my-8 text-center">
