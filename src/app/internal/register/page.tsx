@@ -15,7 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "lucide-react";
 
@@ -52,8 +53,16 @@ export default function InternalRegisterPage() {
     setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      if (userCredential.user) {
-        await updateProfile(userCredential.user, { displayName: name });
+      const user = userCredential.user;
+      if (user) {
+        await updateProfile(user, { displayName: name });
+        // Save user data to Firestore
+        await setDoc(doc(db, "users", user.uid), {
+            name: name,
+            email: email,
+            role: "Gestor", // Default role
+            lastLogin: new Date().toISOString().split('T')[0],
+        });
       }
       router.push('/internal/dashboard');
     } catch (error: any) {

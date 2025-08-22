@@ -49,13 +49,12 @@ export default function UsersPage() {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        // This is a placeholder. In a real app, you'd fetch from Firebase Auth or a 'users' collection.
-        const mockUsers: User[] = [
-          { id: "user1", name: "Gestor Principal", email: "gestor1@alza.com", role: "Admin", lastLogin: "2024-07-22" },
-          { id: "user2", name: "Ana López", email: "ana.lopez@alza.com", role: "Gestor", lastLogin: "2024-07-21" },
-          { id: "user3", name: "Carlos Ruiz", email: "carlos.ruiz@alza.com", role: "Gestor", lastLogin: "2024-07-22" },
-        ];
-        setUsers(mockUsers);
+        const querySnapshot = await getDocs(collection(db, "users"));
+        const usersData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+          id: doc.id,
+          ...doc.data(),
+        } as User));
+        setUsers(usersData);
       } catch (error) {
         console.error("Error fetching users: ", error);
       } finally {
