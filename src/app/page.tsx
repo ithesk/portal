@@ -1,20 +1,128 @@
 
 "use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
+import Link from "next/link";
+import { ShoppingCart } from "lucide-react";
 
-export default function Home() {
-  const router = useRouter();
+const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+    <circle cx="12" cy="12" r="2" fill="currentColor" />
+  </svg>
+);
 
-  useEffect(() => {
-    router.replace('/apply');
-  }, [router]);
 
+const products = [
+  {
+    id: "iphone-15",
+    name: "iPhone 15",
+    popular: true,
+    imageUrl: "https://placehold.co/400x400.png",
+    aiHint: "iphone 15 white",
+    initialPayment: "13,500",
+    biweeklyPayment: "5,250",
+    totalPrice: "45,000",
+    currency: "RD$",
+  },
+  {
+    id: "samsung-galaxy-s24",
+    name: "Samsung Galaxy S24",
+    popular: false,
+    imageUrl: "https://placehold.co/400x400.png",
+    aiHint: "samsung galaxy s24",
+    initialPayment: "12,000",
+    biweeklyPayment: "4,800",
+    totalPrice: "40,000",
+    currency: "RD$",
+  },
+  {
+    id: "ipad-air",
+    name: "iPad Air",
+    popular: false,
+    imageUrl: "https://placehold.co/400x400.png",
+    aiHint: "ipad air",
+    initialPayment: "18,000",
+    biweeklyPayment: "7,000",
+    totalPrice: "60,000",
+    currency: "RD$",
+  },
+   {
+    id: "xiaomi-redmi-note-13",
+    name: "Xiaomi Redmi Note 13",
+    popular: false,
+    imageUrl: "https://placehold.co/400x400.png",
+    aiHint: "xiaomi redmi note 13",
+    initialPayment: "8,000",
+    biweeklyPayment: "3,000",
+    totalPrice: "28,000",
+    currency: "RD$",
+  },
+];
+
+
+export default function StorePage() {
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-background">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <div className="flex min-h-screen w-full flex-col items-center bg-muted/40 p-4">
+      <div className="my-8 text-center">
+         <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
+            <AlzaIcon className="h-8 w-8" />
+        </div>
+        <h1 className="text-4xl font-bold">Elige tu Equipo</h1>
+        <p className="text-muted-foreground text-lg mt-2">Financiamiento fácil y rápido con Alza.</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-7xl">
+        {products.map((product) => (
+          <Card key={product.id} className="flex flex-col">
+            <CardHeader className="p-0 relative">
+               {product.popular && (
+                <Badge variant="secondary" className="absolute top-4 right-4 bg-yellow-400 text-yellow-900">MÁS POPULAR</Badge>
+              )}
+              <div className="w-full aspect-square relative">
+                <Image src={product.imageUrl} alt={product.name} fill className="object-contain p-8" data-ai-hint={product.aiHint}/>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col justify-between text-center p-6">
+              <div className="flex-grow">
+                <CardTitle className="text-2xl mb-2">{product.name}</CardTitle>
+                <p className="text-lg font-semibold text-green-600">Inicial desde {product.currency} {product.initialPayment}</p>
+                <p className="text-lg font-semibold text-blue-600 mt-1">{product.currency} {product.biweeklyPayment} quincenal</p>
+                <CardDescription className="mt-2">Precio total: {product.currency} {product.totalPrice}</CardDescription>
+              </div>
+              <Button asChild className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white">
+                <Link href={`/apply?product=${product.id}`}>
+                    Solicitar ahora <ShoppingCart className="ml-2"/>
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+       <div className="mt-8 text-center text-sm">
+            <Link href="/login" className="underline text-muted-foreground">
+                ¿Ya tienes una cuenta? Inicia Sesión
+            </Link>
+             <span className="text-muted-foreground mx-2">|</span>
+             <Link href="/internal/login" className="underline text-muted-foreground">
+                Acceso Interno
+            </Link>
+        </div>
     </div>
   );
 }
