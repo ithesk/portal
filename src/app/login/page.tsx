@@ -1,0 +1,54 @@
+"use client";
+
+import Link from "next/link";
+import { Truck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export default function LoginPage() {
+  return (
+    <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
+      <Card className="mx-auto max-w-sm w-full">
+        <CardHeader className="text-center">
+          <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
+             <Truck className="h-8 w-8" />
+          </div>
+          <CardTitle className="text-2xl font-bold">EquipoTrack</CardTitle>
+          <CardDescription>
+            Ingrese su correo electrónico para iniciar sesión en su cuenta
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="email">Correo Electrónico</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="m@example.com"
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <div className="flex items-center">
+                <Label htmlFor="password">Contraseña</Label>
+                <Link
+                  href="#"
+                  className="ml-auto inline-block text-sm underline"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
+              <Input id="password" type="password" required />
+            </div>
+            <Button type="submit" className="w-full" asChild>
+              <Link href="/dashboard">Iniciar Sesión</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
