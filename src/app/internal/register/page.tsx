@@ -51,30 +51,39 @@ export default function InternalRegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    console.log("Paso 1: Iniciando el proceso de registro para:", email);
     try {
+      console.log("Paso 2: Intentando crear usuario en Firebase Authentication...");
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+      console.log("Paso 3: Usuario creado exitosamente en Authentication. UID:", user.uid);
       
-      // La información del perfil se actualiza en Auth
+      console.log("Paso 4: Intentando actualizar el perfil del usuario en Auth...");
       await updateProfile(user, { displayName: name });
+      console.log("Paso 5: Perfil de Auth actualizado.");
+
+      const userData = {
+        name: name,
+        email: email,
+        role: "Gestor",
+        lastLogin: new Date().toISOString().split('T')[0],
+      };
       
-      // La información adicional se guarda en Firestore
-      // La regla de seguridad clave es: allow write: if request.auth.uid == userId;
-      await setDoc(doc(db, "users", user.uid), {
-          name: name,
-          email: email,
-          role: "Gestor", // Rol por defecto para usuarios internos
-          lastLogin: new Date().toISOString().split('T')[0],
-      });
+      console.log("Paso 6: Intentando escribir en Firestore en la ruta 'users/" + user.uid + "' con los datos:", userData);
+      await setDoc(doc(db, "users", user.uid), userData);
       
+      console.log("Paso 7: ¡Éxito! Documento escrito en Firestore correctamente.");
       router.push('/internal/dashboard');
+
     } catch (error: any) {
+       console.error("¡ERROR! Ocurrió un problema durante el registro:", error);
        toast({
         variant: "destructive",
-        title: "Error de registro",
-        description: `Por favor, revisa las reglas de seguridad de Firestore. El error fue: ${error.message}`,
+        title: "Error de registro (ver consola)",
+        description: `El error fue: ${error.message}`,
       });
     } finally {
+      console.log("Paso 8: Fin del proceso de registro (haya sido exitoso o no).");
       setLoading(false);
     }
   };
