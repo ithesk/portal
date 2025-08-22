@@ -1,4 +1,7 @@
 
+"use client";
+
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -18,39 +21,43 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { collection, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const clients = [
-  {
-    name: "Constructora XYZ",
-    contact: "juan.perez@xyz.com",
-    status: "Activo",
-    since: "2023-01-15",
-    equipmentCount: 3,
-  },
-  {
-    name: "Ingeniería ABC",
-    contact: "maria.gomez@abc.com",
-    status: "Activo",
-    since: "2022-11-20",
-    equipmentCount: 5,
-  },
-    {
-    name: "Proyectos Delta",
-    contact: "carlos.lopez@delta.com",
-    status: "Verificación Pendiente",
-    since: "2024-07-19",
-    equipmentCount: 0,
-  },
-   {
-    name: "Maquinaria Pesada Sol",
-    contact: "ana.martinez@sol.com",
-    status: "Inactivo",
-    since: "2021-05-10",
-    equipmentCount: 2,
-  },
-];
+interface Client {
+  id: string;
+  name: string;
+  contact: string;
+  status: string;
+  since: string;
+  equipmentCount: number;
+}
 
 export default function ClientsPage() {
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        setLoading(true);
+        const querySnapshot = await getDocs(collection(db, "clients"));
+        const clientsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+          id: doc.id,
+          ...doc.data(),
+        } as Client));
+        setClients(clientsData);
+      } catch (error) {
+        console.error("Error fetching clients: ", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClients();
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -83,28 +90,40 @@ export default function ClientsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {clients.map((client) => (
-              <TableRow key={client.name}>
-                <TableCell className="font-medium">{client.name}</TableCell>
-                <TableCell>{client.contact}</TableCell>
-                <TableCell>
-                   <Badge
-                    variant={
-                      client.status === "Activo" ? "default" 
-                      : client.status === "Inactivo" ? "destructive"
-                      : "secondary"
-                    }
-                    className="capitalize"
-                  >
-                    {client.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {client.since}
-                </TableCell>
-                <TableCell className="text-right">{client.equipmentCount}</TableCell>
-              </TableRow>
-            ))}
+            {loading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell className="font-medium"><Skeleton className="h-5 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-28" /></TableCell>
+                  <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-5 w-8 ml-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : (
+              clients.map((client) => (
+                <TableRow key={client.id}>
+                  <TableCell className="font-medium">{client.name}</TableCell>
+                  <TableCell>{client.contact}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        client.status === "Activo" ? "default" 
+                        : client.status === "Inactivo" ? "destructive"
+                        : "secondary"
+                      }
+                      className="capitalize"
+                    >
+                      {client.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {client.since}
+                  </TableCell>
+                  <TableCell className="text-right">{client.equipmentCount}</TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>

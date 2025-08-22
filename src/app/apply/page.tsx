@@ -74,7 +74,7 @@ export default function ApplyPage() {
                 <AlzaIcon className="h-8 w-8" />
             </div>
             <h1 className="text-3xl font-bold">Solicitud de Financiamiento</h1>
-            <p className="text-muted-foreground">Estás a pocos pasos de obtener tu equipo: <strong>{product || ''}</strong></p>
+            <p className="text-muted-foreground">Estás a pocos pasos de obtener tu equipo: <strong>{product || 'un equipo'}</strong></p>
         </div>
       <Card className="w-full max-w-lg">
         <CardHeader>

@@ -1,4 +1,7 @@
 
+"use client";
+
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -18,35 +21,41 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { collection, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const equipment = [
-  {
-    id: "CAT320D-01",
-    name: "Excavadora CAT 320D",
-    client: "Constructora XYZ",
-    status: "Financiado",
-  },
-  {
-    id: "WACKER-01",
-    name: "Compactadora Wacker",
-    client: "Constructora XYZ",
-    status: "Financiado",
-  },
-  {
-    id: "VOLVO-DUMP-01",
-    name: "Camión Volquete Volvo",
-    client: "Ingeniería ABC",
-    status: "Pagado",
-  },
-   {
-    id: "GROVE-RT540E-01",
-    name: "Grúa Grove RT540E",
-    client: "Ingeniería ABC",
-    status: "En Proceso",
-  },
-];
+interface Equipment {
+  id: string;
+  name: string;
+  client: string;
+  status: string;
+}
 
 export default function InternalEquipmentPage() {
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchEquipment = async () => {
+      try {
+        setLoading(true);
+        const querySnapshot = await getDocs(collection(db, "equipment"));
+        const equipmentData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+          id: doc.id,
+          ...doc.data(),
+        } as Equipment));
+        setEquipment(equipmentData);
+      } catch (error) {
+        console.error("Error fetching equipment: ", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEquipment();
+  }, []);
+
   return (
      <Card>
       <CardHeader>
@@ -78,24 +87,35 @@ export default function InternalEquipmentPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {equipment.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.id}</TableCell>
-                <TableCell>{item.name}</TableCell>
-                <TableCell>{item.client}</TableCell>
-                <TableCell className="text-right">
-                   <Badge
-                    variant={
-                      item.status === "Pagado" ? "default" 
-                      : item.status === "Financiado" ? "outline"
-                      : "secondary"
-                    }
-                  >
-                    {item.status}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
+            {loading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell className="font-medium"><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-6 w-24 ml-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : (
+              equipment.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.id}</TableCell>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell>{item.client}</TableCell>
+                  <TableCell className="text-right">
+                    <Badge
+                      variant={
+                        item.status === "Pagado" ? "default" 
+                        : item.status === "Financiado" ? "outline"
+                        : "secondary"
+                      }
+                    >
+                      {item.status}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>

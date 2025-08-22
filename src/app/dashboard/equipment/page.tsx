@@ -1,3 +1,7 @@
+
+"use client";
+
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import {
   Card,
@@ -9,43 +13,44 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { collection, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const equipment = [
-  {
-    name: "Excavadora CAT 320D",
-    status: "Financiamiento Activo",
-    progress: 45,
-    imageUrl: "https://placehold.co/600x400.png",
-    aiHint: "construction excavator",
-    details: "Próximo pago: $250.00 el 30/07/2024",
-  },
-  {
-    name: "Compactadora Wacker",
-    status: "Financiamiento Activo",
-    progress: 80,
-    imageUrl: "https://placehold.co/600x400.png",
-    aiHint: "compactor construction",
-    details: "Próximo pago: $150.00 el 25/07/2024",
-  },
-  {
-    name: "Camión Volquete Volvo",
-    status: "Pagado",
-    progress: 100,
-    imageUrl: "https://placehold.co/600x400.png",
-    aiHint: "dump truck",
-    details: "Financiamiento completado el 15/03/2024",
-  },
-  {
-    name: "Grúa Grove RT540E",
-    status: "En Proceso",
-    progress: 0,
-    imageUrl: "https://placehold.co/600x400.png",
-    aiHint: "mobile crane",
-    details: "Aprobación de financiamiento pendiente",
-  },
-];
+interface Equipment {
+  id: string;
+  name: string;
+  status: string;
+  progress: number;
+  imageUrl: string;
+  aiHint: string;
+  details: string;
+}
 
 export default function EquipmentPage() {
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchEquipment = async () => {
+      try {
+        setLoading(true);
+        const querySnapshot = await getDocs(collection(db, "equipment"));
+        const equipmentData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+          id: doc.id,
+          ...doc.data(),
+        } as Equipment));
+        setEquipment(equipmentData);
+      } catch (error) {
+        console.error("Error fetching equipment: ", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEquipment();
+  }, []);
+
   return (
     <div>
       <div className="mb-4">
@@ -55,39 +60,60 @@ export default function EquipmentPage() {
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {equipment.map((item) => (
-          <Card key={item.name}>
-            <CardHeader className="p-0">
-              <div className="relative h-48 w-full">
-                <Image
-                  src={item.imageUrl}
-                  alt={item.name}
-                  fill
-                  className="object-cover rounded-t-lg"
-                  data-ai-hint={item.aiHint}
-                />
-              </div>
-               <div className="p-6 pb-2">
-                <Badge
-                  variant={item.status === "Pagado" ? "default" : "secondary"}
-                  className="mb-2"
-                >
-                  {item.status}
-                </Badge>
-                <CardTitle>{item.name}</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 pt-0">
-              <div className="mb-4">
-                <Progress value={item.progress} aria-label={`${item.progress}% pagado`} />
-                <p className="text-sm text-muted-foreground mt-2">{item.progress}% pagado</p>
-              </div>
-            </CardContent>
-            <CardFooter>
-               <p className="text-sm text-muted-foreground">{item.details}</p>
-            </CardFooter>
-          </Card>
-        ))}
+        {loading ? (
+          Array.from({ length: 4 }).map((_, index) => (
+            <Card key={index}>
+              <CardHeader className="p-0">
+                <Skeleton className="h-48 w-full rounded-t-lg" />
+                <div className="p-6 pb-2">
+                  <Skeleton className="h-5 w-20 mb-2" />
+                  <Skeleton className="h-7 w-full" />
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-4 w-1/4" />
+              </CardContent>
+              <CardFooter>
+                <Skeleton className="h-5 w-3/4" />
+              </CardFooter>
+            </Card>
+          ))
+        ) : (
+          equipment.map((item) => (
+            <Card key={item.id}>
+              <CardHeader className="p-0">
+                <div className="relative h-48 w-full">
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.name}
+                    fill
+                    className="object-cover rounded-t-lg"
+                    data-ai-hint={item.aiHint}
+                  />
+                </div>
+                <div className="p-6 pb-2">
+                  <Badge
+                    variant={item.status === "Pagado" ? "default" : "secondary"}
+                    className="mb-2"
+                  >
+                    {item.status}
+                  </Badge>
+                  <CardTitle>{item.name}</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <div className="mb-4">
+                  <Progress value={item.progress} aria-label={`${item.progress}% pagado`} />
+                  <p className="text-sm text-muted-foreground mt-2">{item.progress}% pagado</p>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <p className="text-sm text-muted-foreground">{item.details}</p>
+              </CardFooter>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

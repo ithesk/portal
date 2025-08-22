@@ -8,8 +8,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
-import { collection, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { collection, getDocs, query, where, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Skeleton } from "@/components/ui/skeleton";
+
 
 const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -45,35 +47,37 @@ interface Product {
 
 export default function StorePage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, "products"));
+        setLoading(true);
+        const productsRef = collection(db, "products");
+        const q = query(productsRef, where("status", "==", "Publicado"));
+        const querySnapshot = await getDocs(q);
+        
         const productsData = querySnapshot.docs
           .map((doc: QueryDocumentSnapshot<DocumentData>) => {
               const data = doc.data();
-              // Ensure the document data matches the Product interface
-              if(data.status === "Publicado") {
-                return {
-                    id: doc.id,
-                    name: data.name || "",
-                    popular: data.popular || false,
-                    imageUrl: data.imageUrl || "https://placehold.co/400x400.png",
-                    aiHint: data.aiHint || "product image",
-                    initialPayment: data.initialPayment || "0",
-                    biweeklyPayment: data.biweeklyPayment || "0",
-                    totalPrice: data.price || "0",
-                    currency: data.currency || "RD$",
-                };
-              }
-              return null;
-          })
-          .filter((p): p is Product => p !== null);
+              return {
+                  id: doc.id,
+                  name: data.name || "",
+                  popular: data.popular || false,
+                  imageUrl: data.imageUrl || "https://placehold.co/400x400.png",
+                  aiHint: data.aiHint || "product image",
+                  initialPayment: data.initialPayment || "0",
+                  biweeklyPayment: data.biweeklyPayment || "0",
+                  totalPrice: data.price || "0",
+                  currency: data.currency || "RD$",
+              };
+          });
           
         setProducts(productsData);
       } catch (error) {
         console.error("Error fetching products: ", error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -91,31 +95,52 @@ export default function StorePage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-7xl">
-        {products.map((product) => (
-          <Card key={product.id} className="flex flex-col">
-            <CardHeader className="p-0 relative">
-               {product.popular && (
-                <Badge variant="secondary" className="absolute top-4 right-4 bg-yellow-400 text-yellow-900">MÁS POPULAR</Badge>
-              )}
-              <div className="w-full aspect-square relative">
-                <Image src={product.imageUrl} alt={product.name} fill className="object-contain p-8" data-ai-hint={product.aiHint}/>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col justify-between text-center p-6">
-              <div className="flex-grow">
-                <CardTitle className="text-2xl mb-2">{product.name}</CardTitle>
-                <p className="text-lg font-semibold text-green-600">Inicial desde {product.currency} {product.initialPayment}</p>
-                <p className="text-lg font-semibold text-blue-600 mt-1">{product.currency} {product.biweeklyPayment} quincenal</p>
-                <CardDescription className="mt-2">Precio total: {product.currency} {product.totalPrice}</CardDescription>
-              </div>
-              <Button asChild className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white">
-                <Link href={`/apply?product=${product.id}`}>
-                    Solicitar ahora <ShoppingCart className="ml-2"/>
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+        {loading ? (
+            Array.from({ length: 4 }).map((_, index) => (
+                <Card key={index} className="flex flex-col">
+                    <CardHeader className="p-0 relative">
+                         <div className="w-full aspect-square relative">
+                             <Skeleton className="h-full w-full" />
+                         </div>
+                    </CardHeader>
+                    <CardContent className="flex-grow flex flex-col justify-between text-center p-6">
+                        <div className="flex-grow space-y-2">
+                             <Skeleton className="h-8 w-3/4 mx-auto" />
+                             <Skeleton className="h-6 w-1/2 mx-auto" />
+                             <Skeleton className="h-6 w-1/2 mx-auto" />
+                             <Skeleton className="h-4 w-1/3 mx-auto" />
+                        </div>
+                        <Skeleton className="h-11 w-full mt-6" />
+                    </CardContent>
+                </Card>
+            ))
+        ) : (
+            products.map((product) => (
+            <Card key={product.id} className="flex flex-col">
+                <CardHeader className="p-0 relative">
+                {product.popular && (
+                    <Badge variant="secondary" className="absolute top-4 right-4 bg-yellow-400 text-yellow-900">MÁS POPULAR</Badge>
+                )}
+                <div className="w-full aspect-square relative">
+                    <Image src={product.imageUrl} alt={product.name} fill className="object-contain p-8" data-ai-hint={product.aiHint}/>
+                </div>
+                </CardHeader>
+                <CardContent className="flex-grow flex flex-col justify-between text-center p-6">
+                <div className="flex-grow">
+                    <CardTitle className="text-2xl mb-2">{product.name}</CardTitle>
+                    <p className="text-lg font-semibold text-green-600">Inicial desde {product.currency} {product.initialPayment}</p>
+                    <p className="text-lg font-semibold text-blue-600 mt-1">{product.currency} {product.biweeklyPayment} quincenal</p>
+                    <CardDescription className="mt-2">Precio total: {product.currency} {product.totalPrice}</CardDescription>
+                </div>
+                <Button asChild className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white">
+                    <Link href={`/apply?product=${encodeURIComponent(product.name)}`}>
+                        Solicitar ahora <ShoppingCart className="ml-2"/>
+                    </Link>
+                </Button>
+                </CardContent>
+            </Card>
+            ))
+        )}
       </div>
        <div className="mt-8 text-center text-sm">
             <Link href="/login" className="underline text-muted-foreground">

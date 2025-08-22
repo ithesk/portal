@@ -1,5 +1,7 @@
 
+"use client";
 
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -18,7 +20,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, X, Filter, PlusCircle } from "lucide-react";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,125 +29,141 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
+import { collection, getDocs, query, orderBy, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const requests = [
-  {
-    id: "REQ-001",
-    client: "Proyectos Delta",
-    type: "Solicitud de Financiamiento",
-    date: "2024-07-19",
-    status: "Pendiente de Aprobación",
-  },
-  {
-    id: "REQ-002",
-    client: "Constructora XYZ",
-    type: "Ampliación de Límite",
-    date: "2024-07-18",
-    status: "En Revisión",
-  },
-    {
-    id: "REQ-003",
-    client: "Ingeniería ABC",
-    type: "Solicitud de Nuevo Equipo",
-    date: "2024-07-15",
-    status: "Aprobado",
-  },
-     {
-    id: "REQ-004",
-    client: "Maquinaria Pesada Sol",
-    type: "Reactivación de Cuenta",
-    date: "2024-07-12",
-    status: "Rechazado",
-  },
-];
+interface Request {
+  id: string;
+  client: string;
+  type: string;
+  date: string;
+  status: string;
+}
 
 export default function RequestsPage() {
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        setLoading(true);
+        const requestsRef = collection(db, "requests");
+        const q = query(requestsRef, orderBy("date", "desc"));
+        const querySnapshot = await getDocs(q);
+        const requestsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+          id: doc.id,
+          ...doc.data(),
+        } as Request));
+        setRequests(requestsData);
+      } catch (error) {
+        console.error("Error fetching requests: ", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRequests();
+  }, []);
+
   return (
     <Card>
       <CardHeader>
-         <div className="flex justify-between items-center">
-            <div>
-                <CardTitle>Solicitudes</CardTitle>
-                <CardDescription>
-                Revisa y gestiona las solicitudes de los clientes.
-                </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline">
-                            <Filter className="mr-2 h-4 w-4" />
-                            Filtrar por Estado
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Estado</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>Todas</DropdownMenuItem>
-                        <DropdownMenuItem>Pendiente de Aprobación</DropdownMenuItem>
-                        <DropdownMenuItem>En Revisión</DropdownMenuItem>
-                        <DropdownMenuItem>Aprobado</DropdownMenuItem>
-                        <DropdownMenuItem>Rechazado</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                <Button asChild>
-                  <Link href="/internal/requests/new">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Nueva Solicitud
-                  </Link>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Solicitudes</CardTitle>
+            <CardDescription>
+              Revisa y gestiona las solicitudes de los clientes.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filtrar por Estado
                 </Button>
-            </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Estado</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>Todas</DropdownMenuItem>
+                <DropdownMenuItem>Pendiente de Aprobación</DropdownMenuItem>
+                <DropdownMenuItem>En Revisión</DropdownMenuItem>
+                <DropdownMenuItem>Aprobado</DropdownMenuItem>
+                <DropdownMenuItem>Rechazado</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button asChild>
+              <Link href="/internal/requests/new">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nueva Solicitud
+              </Link>
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-                <TableHead>ID Solicitud</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Tipo de Solicitud</TableHead>
-                <TableHead className="hidden md:table-cell">Fecha</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+              <TableHead>ID Solicitud</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Tipo de Solicitud</TableHead>
+              <TableHead className="hidden md:table-cell">Fecha</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {requests.map((req) => (
-              <TableRow key={req.id}>
-                <TableCell className="font-medium">{req.id}</TableCell>
-                <TableCell>{req.client}</TableCell>
-                <TableCell>{req.type}</TableCell>
-                 <TableCell className="hidden md:table-cell">{req.date}</TableCell>
-                <TableCell>
-                   <Badge
-                    variant={
-                      req.status === "Aprobado" ? "default" 
-                      : req.status === "Rechazado" ? "destructive"
-                      : "secondary"
-                    }
-                  >
-                    {req.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                {req.status === "Pendiente de Aprobación" && (
-                    <div className="flex gap-2 justify-end">
+            {loading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell className="font-medium"><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                  <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-32" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : (
+              requests.map((req) => (
+                <TableRow key={req.id}>
+                  <TableCell className="font-medium">{req.id}</TableCell>
+                  <TableCell>{req.client}</TableCell>
+                  <TableCell>{req.type}</TableCell>
+                  <TableCell className="hidden md:table-cell">{req.date}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        req.status === "Aprobado" ? "default"
+                        : req.status === "Rechazado" ? "destructive"
+                        : "secondary"
+                      }
+                    >
+                      {req.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {req.status === "Pendiente de Aprobación" && (
+                      <div className="flex gap-2 justify-end">
                         <Button variant="outline" size="icon" className="h-8 w-8">
-                            <Check className="h-4 w-4" />
+                          <Check className="h-4 w-4" />
                         </Button>
-                         <Button variant="destructive" size="icon" className="h-8 w-8">
-                            <X className="h-4 w-4" />
+                        <Button variant="destructive" size="icon" className="h-8 w-8">
+                          <X className="h-4 w-4" />
                         </Button>
-                    </div>
-                )}
-                </TableCell>
-              </TableRow>
-            ))}
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>
     </Card>
   );
 }
-
-    

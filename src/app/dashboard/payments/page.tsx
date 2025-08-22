@@ -1,3 +1,7 @@
+
+"use client";
+
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -14,67 +18,45 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { collection, getDocs, query, orderBy, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const payments = [
-  {
-    id: "PAY001",
-    date: "2024-06-30",
-    amount: "$250.00",
-    method: "Transferencia Bancaria",
-    status: "Completado",
-    equipment: "Excavadora CAT 320D",
-  },
-  {
-    id: "PAY002",
-    date: "2024-06-25",
-    amount: "$150.00",
-    method: "Tarjeta de Crédito",
-    status: "Completado",
-    equipment: "Compactadora Wacker",
-  },
-  {
-    id: "PAY003",
-    date: "2024-05-30",
-    amount: "$250.00",
-    method: "Transferencia Bancaria",
-    status: "Completado",
-    equipment: "Excavadora CAT 320D",
-  },
-  {
-    id: "PAY004",
-    date: "2024-05-25",
-    amount: "$150.00",
-    method: "Tarjeta de Crédito",
-    status: "Completado",
-    equipment: "Compactadora Wacker",
-  },
-  {
-    id: "PAY005",
-    date: "2024-04-30",
-    amount: "$250.00",
-    method: "Transferencia Bancaria",
-    status: "Completado",
-    equipment: "Excavadora CAT 320D",
-  },
-    {
-    id: "PAY006",
-    date: "2024-04-25",
-    amount: "$150.00",
-    method: "Tarjeta de Crédito",
-    status: "Completado",
-    equipment: "Compactadora Wacker",
-  },
-  {
-    id: "PAY007",
-    date: "2024-03-15",
-    amount: "$500.00",
-    method: "Transferencia Bancaria",
-    status: "Reembolsado",
-    equipment: "Camión Volquete",
-  },
-];
+interface Payment {
+  id: string;
+  date: string;
+  amount: string;
+  method: string;
+  status: string;
+  equipment: string;
+}
 
 export default function PaymentsPage() {
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        setLoading(true);
+        const paymentsRef = collection(db, "payments");
+        const q = query(paymentsRef, orderBy("date", "desc"));
+        const querySnapshot = await getDocs(q);
+        const paymentsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+          id: doc.id,
+          ...doc.data(),
+        } as Payment));
+        setPayments(paymentsData);
+      } catch (error) {
+        console.error("Error fetching payments: ", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayments();
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -98,28 +80,43 @@ export default function PaymentsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {payments.map((payment) => (
-              <TableRow key={payment.id}>
-                <TableCell className="hidden sm:table-cell font-medium">
-                  {payment.id}
-                </TableCell>
-                <TableCell className="font-medium">{payment.equipment}</TableCell>
-                <TableCell>{payment.method}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      payment.status === "Completado" ? "outline" : "secondary"
-                    }
-                  >
-                    {payment.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {payment.date}
-                </TableCell>
-                <TableCell className="text-right">{payment.amount}</TableCell>
-              </TableRow>
-            ))}
+            {loading ? (
+              Array.from({ length: 5 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell className="hidden sm:table-cell font-medium">
+                    <Skeleton className="h-5 w-20" />
+                  </TableCell>
+                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                  <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : (
+              payments.map((payment) => (
+                <TableRow key={payment.id}>
+                  <TableCell className="hidden sm:table-cell font-medium">
+                    {payment.id}
+                  </TableCell>
+                  <TableCell className="font-medium">{payment.equipment}</TableCell>
+                  <TableCell>{payment.method}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        payment.status === "Completado" ? "outline" : "secondary"
+                      }
+                    >
+                      {payment.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {payment.date}
+                  </TableCell>
+                  <TableCell className="text-right">{payment.amount}</TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>

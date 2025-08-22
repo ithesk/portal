@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { collection, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 interface Product {
@@ -47,24 +48,33 @@ interface Product {
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProducts = async () => {
-      const querySnapshot = await getDocs(collection(db, "products"));
-      const productsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => {
-          const data = doc.data();
-          return {
-              id: doc.id,
-              name: data.name || "",
-              status: data.status || "Borrador",
-              imageUrl: data.imageUrl || "https://placehold.co/64x64.png",
-              aiHint: data.aiHint || "",
-              price: data.price || "0",
-              initialPayment: data.initialPayment || "0",
-              stock: data.stock || 0,
-          };
-      });
-      setProducts(productsData);
+      try {
+        setLoading(true);
+        const querySnapshot = await getDocs(collection(db, "products"));
+        const productsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                name: data.name || "",
+                status: data.status || "Borrador",
+                imageUrl: data.imageUrl || "https://placehold.co/64x64.png",
+                aiHint: data.aiHint || "",
+                price: data.price || "0",
+                initialPayment: data.initialPayment || "0",
+                stock: data.stock || 0,
+            };
+        });
+        setProducts(productsData);
+      } catch (error) {
+        console.error("Error fetching products: ", error);
+      }
+      finally {
+        setLoading(false);
+      }
     };
 
     fetchProducts();
@@ -109,50 +119,66 @@ export default function ProductsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {products.map((product) => (
-              <TableRow key={product.id}>
-                 <TableCell className="hidden sm:table-cell">
-                        <Image
-                          alt={product.name}
-                          className="aspect-square rounded-md object-contain"
-                          height="64"
-                          src={product.imageUrl}
-                          width="64"
-                          data-ai-hint={product.aiHint}
-                        />
-                      </TableCell>
-                <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>
-                  <Badge variant={product.status === "Publicado" ? "outline" : "secondary"}>
-                    {product.status}
-                  </Badge>
-                </TableCell>
-                 <TableCell>{product.price}</TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {product.initialPayment}
-                </TableCell>
-                <TableCell className="hidden md:table-cell">{product.stock}</TableCell>
-                <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-haspopup="true"
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                            <DropdownMenuItem>Editar</DropdownMenuItem>
-                            <DropdownMenuItem>Eliminar</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-              </TableRow>
-            ))}
+            {loading ? (
+              Array.from({ length: 5 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell className="hidden sm:table-cell">
+                    <Skeleton className="h-16 w-16 rounded-md" />
+                  </TableCell>
+                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                  <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
+                  <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-10" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                </TableRow>
+              ))
+            ) : (
+              products.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell className="hidden sm:table-cell">
+                          <Image
+                            alt={product.name}
+                            className="aspect-square rounded-md object-contain"
+                            height="64"
+                            src={product.imageUrl}
+                            width="64"
+                            data-ai-hint={product.aiHint}
+                          />
+                        </TableCell>
+                  <TableCell className="font-medium">{product.name}</TableCell>
+                  <TableCell>
+                    <Badge variant={product.status === "Publicado" ? "outline" : "secondary"}>
+                      {product.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{product.price}</TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {product.initialPayment}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">{product.stock}</TableCell>
+                  <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                              <DropdownMenuItem>Editar</DropdownMenuItem>
+                              <DropdownMenuItem>Eliminar</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>
