@@ -68,10 +68,11 @@ export default function InternalLayout({
   const [user, loading, error] = useAuthState(auth);
 
   useEffect(() => {
-    if (!loading && !user) {
+    const isAuthPage = pathname === '/internal/login' || pathname === '/internal/register';
+    if (!loading && !user && !isAuthPage) {
       router.push('/internal/login');
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, pathname]);
 
 
   const navItems = [
@@ -83,7 +84,7 @@ export default function InternalLayout({
     { href: "/internal/settings", icon: Cog, label: "Configuración" },
   ];
 
-  if (loading) {
+  if (loading && (pathname !== '/internal/login' && pathname !== '/internal/register')) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center">
         <Loader className="h-12 w-12 animate-spin" />
@@ -91,117 +92,126 @@ export default function InternalLayout({
     );
   }
   
-  if (!user) {
+  if (!user && (pathname !== '/internal/login' && pathname !== '/internal/register')) {
     return null;
   }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
-        <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
-          <Link
-            href="/internal/dashboard"
-            className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
-          >
-            <AlzaIcon className="h-4 w-4 transition-all group-hover:scale-110" />
-            <span className="sr-only">Alza</span>
-          </Link>
-          <TooltipProvider>
-            {navItems.map((item) => (
-              <Tooltip key={item.href}>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={item.href}
-                    className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors md:h-8 md:w-8 ${
-                      pathname.startsWith(item.href)
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    <span className="sr-only">{item.label}</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right">{item.label}</TooltipContent>
-              </Tooltip>
-            ))}
-          </TooltipProvider>
-        </nav>
-         <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
-            <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="overflow-hidden rounded-full"
-              >
-                 <Avatar>
-                  <AvatarImage src="https://placehold.co/32x32.png" alt="@gestor" data-ai-hint="person portrait" />
-                  <AvatarFallback>G</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="right">
-              <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>Perfil</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => auth.signOut()}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Cerrar Sesión</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-         </nav>
-      </aside>
-      <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button size="icon" variant="outline" className="sm:hidden">
-                <PanelLeft className="h-5 w-5" />
-                <span className="sr-only">Toggle Menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="sm:max-w-xs">
-              <nav className="grid gap-6 text-lg font-medium">
+       {(user || (pathname === '/internal/login' || pathname === '/internal/register')) && (
+        <>
+          {pathname !== '/internal/login' && pathname !== '/internal/register' && (
+            <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
+              <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
                 <Link
                   href="/internal/dashboard"
-                  className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
+                  className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
                 >
-                  <AlzaIcon className="h-5 w-5 transition-all group-hover:scale-110" />
+                  <AlzaIcon className="h-4 w-4 transition-all group-hover:scale-110" />
                   <span className="sr-only">Alza</span>
                 </Link>
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-4 px-2.5 ${
-                      pathname.startsWith(item.href)
-                        ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {item.label}
-                  </Link>
-                ))}
+                <TooltipProvider>
+                  {navItems.map((item) => (
+                    <Tooltip key={item.href}>
+                      <TooltipTrigger asChild>
+                        <Link
+                          href={item.href}
+                          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors md:h-8 md:w-8 ${
+                            pathname.startsWith(item.href)
+                              ? "bg-accent text-accent-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <item.icon className="h-5 w-5" />
+                          <span className="sr-only">{item.label}</span>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">{item.label}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                </TooltipProvider>
               </nav>
-            </SheetContent>
-          </Sheet>
-          <div className="relative ml-auto flex-1 md:grow-0">
-            <h1 className="text-xl font-semibold sm:block">
-              {navItems.find(item => pathname.startsWith(item.href))?.label}
-            </h1>
+              <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
+                  <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="overflow-hidden rounded-full"
+                    >
+                      <Avatar>
+                        <AvatarImage src="https://placehold.co/32x32.png" alt="@gestor" data-ai-hint="person portrait" />
+                        <AvatarFallback>G</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" side="right">
+                    <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem>
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Perfil</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => auth.signOut()}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Cerrar Sesión</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </nav>
+            </aside>
+          )}
+
+          <div className={`flex flex-col ${pathname !== '/internal/login' && pathname !== '/internal/register' ? 'sm:gap-4 sm:py-4 sm:pl-14' : ''}`}>
+             {pathname !== '/internal/login' && pathname !== '/internal/register' && (
+              <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button size="icon" variant="outline" className="sm:hidden">
+                      <PanelLeft className="h-5 w-5" />
+                      <span className="sr-only">Toggle Menu</span>
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="sm:max-w-xs">
+                    <nav className="grid gap-6 text-lg font-medium">
+                      <Link
+                        href="/internal/dashboard"
+                        className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
+                      >
+                        <AlzaIcon className="h-5 w-5 transition-all group-hover:scale-110" />
+                        <span className="sr-only">Alza</span>
+                      </Link>
+                      {navItems.map((item) => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`flex items-center gap-4 px-2.5 ${
+                            pathname.startsWith(item.href)
+                              ? "text-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <item.icon className="h-5 w-5" />
+                          {item.label}
+                        </Link>
+                      ))}
+                    </nav>
+                  </SheetContent>
+                </Sheet>
+                <div className="relative ml-auto flex-1 md:grow-0">
+                  <h1 className="text-xl font-semibold sm:block">
+                    {navItems.find(item => pathname.startsWith(item.href))?.label}
+                  </h1>
+                </div>
+              </header>
+             )}
+            <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
+              {children}
+            </main>
           </div>
-        </header>
-        <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-          {children}
-        </main>
-      </div>
+        </>
+       )}
     </div>
   );
 }
