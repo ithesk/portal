@@ -62,10 +62,11 @@ export default function InternalRegisterPage() {
       await updateProfile(user, { displayName: name });
       console.log("Paso 5: Perfil de Auth actualizado.");
 
+      // Por defecto, los nuevos usuarios son 'Gestor'
       const userData = {
         name: name,
         email: email,
-        role: "Gestor",
+        role: "Gestor", 
         lastLogin: new Date().toISOString().split('T')[0],
       };
       

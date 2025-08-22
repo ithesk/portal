@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, MoreHorizontal, Search } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Search, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -31,6 +31,7 @@ import {
 import { collection, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 interface User {
@@ -44,19 +45,29 @@ interface User {
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
+        setError(null);
         const querySnapshot = await getDocs(collection(db, "users"));
         const usersData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
           id: doc.id,
           ...doc.data(),
         } as User));
         setUsers(usersData);
-      } catch (error) {
-        console.error("Error fetching users: ", error);
+        if (usersData.length === 0) {
+            setError("No se encontraron usuarios o no tienes permisos para verlos. Asegúrate de tener el rol de 'Admin'.");
+        }
+      } catch (err: any) {
+        console.error("Error fetching users: ", err);
+        if (err.code === 'permission-denied') {
+            setError("No tienes permiso para ver esta información. Solo los administradores pueden ver la lista de usuarios.");
+        } else {
+            setError("Ocurrió un error al cargar los usuarios.");
+        }
       } finally {
         setLoading(false);
       }
@@ -86,6 +97,18 @@ export default function UsersPage() {
         </div>
       </CardHeader>
       <CardContent>
+        {error && (
+            <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Acceso Denegado</AlertTitle>
+                <AlertDescription>
+                   {error} Por favor, contacta a un administrador si crees que esto es un error.
+                   <p className="font-mono text-xs mt-2">
+                    <b>Solución Rápida:</b> Para asignar un rol de Admin, ve a la Consola de Firebase &gt; Firestore Database &gt; users &gt; (documento de tu usuario) y cambia el campo 'role' a 'Admin'.
+                   </p>
+                </AlertDescription>
+            </Alert>
+        )}
         <Table>
           <TableHeader>
             <TableRow>
