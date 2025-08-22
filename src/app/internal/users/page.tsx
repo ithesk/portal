@@ -59,7 +59,7 @@ export default function UsersPage() {
         } as User));
         setUsers(usersData);
         if (usersData.length === 0) {
-            setError("No se encontraron usuarios o no tienes permisos para verlos. Asegúrate de tener el rol de 'Admin'.");
+            setError("No se encontraron usuarios. Asegúrate de haber creado al menos un usuario y que tu cuenta tenga el rol de 'Admin'.");
         }
       } catch (err: any) {
         console.error("Error fetching users: ", err);
@@ -97,7 +97,7 @@ export default function UsersPage() {
         </div>
       </CardHeader>
       <CardContent>
-        {error && (
+        {error && !loading && (
             <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Acceso Denegado</AlertTitle>
@@ -133,7 +133,7 @@ export default function UsersPage() {
                 </TableRow>
               ))
             ) : (
-              users.map((user) => (
+              !error && users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
