@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from 'next/navigation'
 import Link from "next/link";
 
@@ -26,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -54,7 +55,7 @@ const steps = [
   { id: 3, title: "Crea tu Cuenta" },
 ];
 
-export default function ApplyPage() {
+function ApplyForm() {
   const [currentStep, setCurrentStep] = useState(1);
   const searchParams = useSearchParams()
   const product = searchParams.get('product')
@@ -172,4 +173,39 @@ export default function ApplyPage() {
         </div>
     </div>
   );
+}
+
+function ApplyPageFallback() {
+    return (
+        <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
+            <div className="mb-6 text-center">
+                <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
+                    <AlzaIcon className="h-8 w-8" />
+                </div>
+                <h1 className="text-3xl font-bold">Solicitud de Financiamiento</h1>
+                <Skeleton className="h-6 w-64 mt-2 mx-auto" />
+            </div>
+            <Card className="w-full max-w-lg">
+                <CardHeader>
+                  <Skeleton className="h-7 w-48 mb-2" />
+                  <Skeleton className="h-4 w-full" />
+                </CardHeader>
+                <CardContent className="min-h-[300px] flex flex-col justify-center items-center">
+                    <Skeleton className="h-48 w-full" />
+                </CardContent>
+                <CardFooter className="flex justify-between border-t pt-6">
+                   <Skeleton className="h-10 w-24" />
+                   <Skeleton className="h-10 w-24" />
+                </CardFooter>
+            </Card>
+        </div>
+    )
+}
+
+export default function ApplyPage() {
+    return (
+        <Suspense fallback={<ApplyPageFallback />}>
+            <ApplyForm />
+        </Suspense>
+    )
 }
