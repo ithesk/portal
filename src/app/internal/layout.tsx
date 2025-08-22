@@ -67,13 +67,13 @@ export default function InternalLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [user, loading, error] = useAuthState(auth);
+  const isAuthPage = pathname === '/internal/login' || pathname === '/internal/register';
 
   useEffect(() => {
-    const isAuthPage = pathname === '/internal/login' || pathname === '/internal/register';
     if (!loading && !user && !isAuthPage) {
       router.push('/internal/login');
     }
-  }, [user, loading, router, pathname]);
+  }, [user, loading, router, isAuthPage]);
 
 
   const navItems = [
@@ -86,7 +86,7 @@ export default function InternalLayout({
     { href: "/internal/settings", icon: Cog, label: "Configuración" },
   ];
 
-  if (loading && (pathname !== '/internal/login' && pathname !== '/internal/register')) {
+  if (loading && !isAuthPage) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center">
         <Loader className="h-12 w-12 animate-spin" />
@@ -94,16 +94,19 @@ export default function InternalLayout({
     );
   }
   
-  if (!user && (pathname !== '/internal/login' && pathname !== '/internal/register')) {
+  if (!user && !isAuthPage) {
     return null;
+  }
+  
+  if (isAuthPage) {
+      return <>{children}</>;
   }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
-       {(user || (pathname === '/internal/login' || pathname === '/internal/register')) && (
+       {user && (
         <>
-          {pathname !== '/internal/login' && pathname !== '/internal/register' && (
-            <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
+          <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
               <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
                 <Link
                   href="/internal/dashboard"
@@ -163,10 +166,8 @@ export default function InternalLayout({
                 </DropdownMenu>
               </nav>
             </aside>
-          )}
 
-          <div className={`flex flex-col ${pathname !== '/internal/login' && pathname !== '/internal/register' ? 'sm:gap-4 sm:py-4 sm:pl-14' : ''}`}>
-             {pathname !== '/internal/login' && pathname !== '/internal/register' && (
+          <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
               <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
                 <Sheet>
                   <SheetTrigger asChild>
@@ -207,7 +208,6 @@ export default function InternalLayout({
                   </h1>
                 </div>
               </header>
-             )}
             <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
               {children}
             </main>
