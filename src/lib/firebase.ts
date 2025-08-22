@@ -8,12 +8,12 @@ import { getAuth } from "firebase/auth";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "API_KEY",
-  authDomain: "AUTH_DOMAIN",
-  projectId: "PROJECT_ID",
-  storageBucket: "STORAGE_BUCKET",
-  messagingSenderId: "MESSAGING_SENDER_ID",
-  appId: "APP_ID"
+  apiKey: "AIzaSyCptCTP7xDmJkvWdMJ1HrHZ4m_qL35KxEg",
+  authDomain: "equipotrack-qdywm.firebaseapp.com",
+  projectId: "equipotrack-qdywm",
+  storageBucket: "equipotrack-qdywm.firebasestorage.app",
+  messagingSenderId: "112084576784",
+  appId: "1:112084576784:web:f259df9a36afe62f227895"
 };
 
 // Initialize Firebase
