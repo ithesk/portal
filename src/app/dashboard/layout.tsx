@@ -133,7 +133,7 @@ export default function DashboardLayout({
             </SheetContent>
           </Sheet>
           <div className="relative ml-auto flex-1 md:grow-0">
-            <h1 className="text-xl font-semibold hidden sm:block">
+            <h1 className="text-xl font-semibold sm:block">
               {navItems.find(item => item.href === pathname)?.label}
             </h1>
           </div>
