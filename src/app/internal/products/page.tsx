@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { PlusCircle, Search, MoreHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
+import Link from "next/link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,9 +92,11 @@ export default function ProductsPage() {
                 Gestiona los equipos que se muestran en la página pública.
                 </CardDescription>
             </div>
-            <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Nuevo Producto
+            <Button asChild>
+                <Link href="/internal/products/new">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Nuevo Producto
+                </Link>
             </Button>
         </div>
         <div className="relative mt-4">
