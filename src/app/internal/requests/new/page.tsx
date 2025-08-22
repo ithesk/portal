@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import SignatureCanvas from "react-signature-canvas";
 import {
   ChevronLeft,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   Calculator,
   ScanLine,
   FileSignature,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,6 +55,7 @@ export default function NewRequestPage() {
   const [initialPercentage, setInitialPercentage] = useState(30);
   const [installments, setInstallments] = useState(6);
   const [requestDate] = useState(new Date());
+  const sigPad = useRef<SignatureCanvas>(null);
 
   const initialPayment = itemValue * (initialPercentage / 100);
   const financingAmount = itemValue - initialPayment;
@@ -72,6 +75,11 @@ export default function NewRequestPage() {
   const nextStep = () =>
     setCurrentStep((prev) => Math.min(prev + 1, steps.length));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
+  
+  const clearSignature = () => {
+    sigPad.current?.clear();
+  };
+
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -239,7 +247,7 @@ export default function NewRequestPage() {
                     <span>{installments} Quincenales</span>
                   </div>
                    <div className="flex justify-between text-muted-foreground">
-                    <span>Total Intereses:</span>
+                    <span>Total Intereses (Aprox.):</span>
                     <span>${totalInterest.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-lg text-primary border-t pt-2 mt-2">
@@ -278,10 +286,10 @@ export default function NewRequestPage() {
                     <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy")}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente con C.I. <strong>V-12.345.678</strong>.</p>
                     <p>El cliente solicita el financiamiento de un <strong>{itemType === 'phone' ? 'Teléfono' : 'Tablet'}</strong> valorado en <strong>${itemValue.toFixed(2)}</strong>.</p>
                     <p>El cliente se compromete a pagar una inicial de <strong>${initialPayment.toFixed(2)}</strong> ({initialPercentage}%) en la fecha de hoy.</p>
-                    <p>El monto restante de <strong>${financingAmount.toFixed(2)}</strong> más los intereses de <strong>${totalInterest.toFixed(2)}</strong> será pagado en <strong>{installments} cuotas quincenales</strong> de <strong>${biweeklyPayment.toFixed(2)}</strong> cada una.</p>
+                    <p>El monto restante de <strong>${financingAmount.toFixed(2)}</strong> más los intereses aproximados de <strong>${totalInterest.toFixed(2)}</strong> será pagado en <strong>{installments} cuotas quincenales</strong> de aproximadamente <strong>${biweeklyPayment.toFixed(2)}</strong> cada una.</p>
                     
                     <div>
-                        <h4 className="font-semibold mb-2">Calendario de Pagos:</h4>
+                        <h4 className="font-semibold mb-2">Calendario de Pagos (Estimado):</h4>
                         <ul className="list-disc pl-5">
                             {paymentDates.map((date, i) => (
                                 <li key={i}>Cuota {i+1}: {date}</li>
@@ -292,10 +300,20 @@ export default function NewRequestPage() {
                 </div>
                </div>
                <div className="space-y-4">
-                 <CardTitle>Firma del Cliente</CardTitle>
+                 <div className="flex justify-between items-center">
+                    <CardTitle>Firma del Cliente</CardTitle>
+                     <Button variant="ghost" size="sm" onClick={clearSignature}>
+                        <Trash2 className="mr-2 h-4 w-4"/>
+                        Limpiar
+                     </Button>
+                 </div>
                  <CardDescription>El cliente debe firmar en el recuadro para aceptar los términos del contrato.</CardDescription>
-                 <div className="w-full h-48 bg-white rounded-lg border-2 border-dashed flex items-center justify-center">
-                    <p className="text-muted-foreground">Área de firma digital (funcionalidad no implementada)</p>
+                 <div className="w-full h-48 bg-white rounded-lg border-2 border-dashed">
+                    <SignatureCanvas
+                        ref={sigPad}
+                        penColor="black"
+                        canvasProps={{ className: "w-full h-full" }}
+                    />
                  </div>
                  <Button className="w-full">
                     <CheckCircle className="mr-2" /> Aceptar y Firmar Contrato
