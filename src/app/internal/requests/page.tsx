@@ -1,4 +1,5 @@
 
+
 import {
   Card,
   CardContent,
@@ -26,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Link from "next/link";
 
 const requests = [
   {
@@ -87,9 +89,11 @@ export default function RequestsPage() {
                         <DropdownMenuItem>Rechazado</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <Button>
+                <Button asChild>
+                  <Link href="/internal/requests/new">
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Nueva Solicitud
+                  </Link>
                 </Button>
             </div>
         </div>
@@ -144,3 +148,5 @@ export default function RequestsPage() {
     </Card>
   );
 }
+
+    

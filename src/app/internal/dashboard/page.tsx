@@ -1,4 +1,5 @@
 
+
 import {
   Card,
   CardContent,
@@ -79,7 +80,7 @@ export default function InternalDashboard() {
                 </CardDescription>
               </div>
               <Button asChild>
-                <Link href="/internal/requests">
+                <Link href="/internal/requests/new">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Nueva Solicitud
                 </Link>
@@ -170,3 +171,5 @@ export default function InternalDashboard() {
     </div>
   );
 }
+
+    
