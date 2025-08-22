@@ -238,10 +238,6 @@ export default function NewRequestPage() {
                     <span>Cuotas:</span>
                     <span>{installments} Quincenales</span>
                   </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Tasa de Interés Fija:</span>
-                    <span>12.68%</span>
-                  </div>
                    <div className="flex justify-between text-muted-foreground">
                     <span>Total Intereses:</span>
                     <span>${totalInterest.toFixed(2)}</span>
@@ -282,7 +278,7 @@ export default function NewRequestPage() {
                     <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy")}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente con C.I. <strong>V-12.345.678</strong>.</p>
                     <p>El cliente solicita el financiamiento de un <strong>{itemType === 'phone' ? 'Teléfono' : 'Tablet'}</strong> valorado en <strong>${itemValue.toFixed(2)}</strong>.</p>
                     <p>El cliente se compromete a pagar una inicial de <strong>${initialPayment.toFixed(2)}</strong> ({initialPercentage}%) en la fecha de hoy.</p>
-                    <p>El monto restante de <strong>${financingAmount.toFixed(2)}</strong> más los intereses de <strong>${totalInterest.toFixed(2)}</strong> (Tasa: {interestRate*100}%) será pagado en <strong>{installments} cuotas quincenales</strong> de <strong>${biweeklyPayment.toFixed(2)}</strong> cada una.</p>
+                    <p>El monto restante de <strong>${financingAmount.toFixed(2)}</strong> más los intereses de <strong>${totalInterest.toFixed(2)}</strong> será pagado en <strong>{installments} cuotas quincenales</strong> de <strong>${biweeklyPayment.toFixed(2)}</strong> cada una.</p>
                     
                     <div>
                         <h4 className="font-semibold mb-2">Calendario de Pagos:</h4>
@@ -299,7 +295,7 @@ export default function NewRequestPage() {
                  <CardTitle>Firma del Cliente</CardTitle>
                  <CardDescription>El cliente debe firmar en el recuadro para aceptar los términos del contrato.</CardDescription>
                  <div className="w-full h-48 bg-white rounded-lg border-2 border-dashed flex items-center justify-center">
-                    <p className="text-muted-foreground">Área de firma digital</p>
+                    <p className="text-muted-foreground">Área de firma digital (funcionalidad no implementada)</p>
                  </div>
                  <Button className="w-full">
                     <CheckCircle className="mr-2" /> Aceptar y Firmar Contrato
