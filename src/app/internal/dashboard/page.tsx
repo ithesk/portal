@@ -15,7 +15,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Wrench, DollarSign, Activity } from "lucide-react";
+import { Users, Wrench, DollarSign, Activity, PlusCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function InternalDashboard() {
   return (
@@ -69,10 +71,20 @@ export default function InternalDashboard() {
       <div>
         <Card>
           <CardHeader className="px-7">
-            <CardTitle>Actividad Reciente del Sistema</CardTitle>
-            <CardDescription>
-              Un resumen de las últimas acciones importantes en la plataforma.
-            </CardDescription>
+             <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>Actividad Reciente del Sistema</CardTitle>
+                <CardDescription>
+                  Un resumen de las últimas acciones importantes en la plataforma.
+                </CardDescription>
+              </div>
+              <Button asChild>
+                <Link href="/internal/requests">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Nueva Solicitud
+                </Link>
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
