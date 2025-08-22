@@ -44,15 +44,17 @@ const steps = [
 
 export default function NewRequestPage() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [itemType, setItemType] = useState<string | undefined>();
   const [itemValue, setItemValue] = useState(0);
   const [initialPercentage, setInitialPercentage] = useState(30);
+  const [installments, setInstallments] = useState(6);
 
   const initialPayment = itemValue * (initialPercentage / 100);
   const financingAmount = itemValue - initialPayment;
   const interestRate = 0.1268;
-  const totalInterest = financingAmount * interestRate * 6;
+  const totalInterest = financingAmount * interestRate * installments;
   const totalToPay = financingAmount + totalInterest;
-  const biweeklyPayment = financingAmount > 0 ? totalToPay / 6 : 0;
+  const biweeklyPayment = financingAmount > 0 ? totalToPay / installments : 0;
 
   const progress = (currentStep / steps.length) * 100;
 
@@ -133,7 +135,7 @@ export default function NewRequestPage() {
                 </CardDescription>
                 <div className="space-y-2">
                   <Label htmlFor="item-type">Tipo de Artículo</Label>
-                  <Select>
+                  <Select onValueChange={setItemType} value={itemType}>
                     <SelectTrigger id="item-type">
                       <SelectValue placeholder="Selecciona un artículo" />
                     </SelectTrigger>
@@ -151,6 +153,37 @@ export default function NewRequestPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {itemType === 'phone' && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone-brand">Marca del Teléfono</Label>
+                      <Select>
+                        <SelectTrigger id="phone-brand">
+                          <SelectValue placeholder="Selecciona una marca" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="apple">Apple</SelectItem>
+                          <SelectItem value="samsung">Samsung</SelectItem>
+                          <SelectItem value="xiaomi">Xiaomi</SelectItem>
+                          <SelectItem value="other">Otra</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                     <div className="space-y-4 pt-2">
+                        <Label htmlFor="installments">Cuotas: {installments} Quincenales</Label>
+                        <Slider
+                          id="installments"
+                          min={3}
+                          max={7}
+                          step={1}
+                          value={[installments]}
+                          onValueChange={(value) => setInstallments(value[0])}
+                        />
+                      </div>
+                  </>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="item-value">Valor del Artículo ($)</Label>
                   <Input
@@ -192,7 +225,7 @@ export default function NewRequestPage() {
                   </div>
                   <div className="flex justify-between text-muted-foreground">
                     <span>Cuotas:</span>
-                    <span>6 Quincenales</span>
+                    <span>{installments} Quincenales</span>
                   </div>
                   <div className="flex justify-between text-muted-foreground">
                     <span>Tasa de Interés:</span>
