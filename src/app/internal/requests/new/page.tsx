@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import Link from "next/link";
 
 const steps = [
@@ -44,13 +45,14 @@ const steps = [
 export default function NewRequestPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [itemValue, setItemValue] = useState(0);
+  const [initialPercentage, setInitialPercentage] = useState(30);
 
-  const initialPayment = itemValue * 0.3;
+  const initialPayment = itemValue * (initialPercentage / 100);
   const financingAmount = itemValue - initialPayment;
   const interestRate = 0.1268;
   const totalInterest = financingAmount * interestRate * 6;
   const totalToPay = financingAmount + totalInterest;
-  const biweeklyPayment = totalToPay / 6;
+  const biweeklyPayment = financingAmount > 0 ? totalToPay / 6 : 0;
 
   const progress = (currentStep / steps.length) * 100;
 
@@ -159,6 +161,17 @@ export default function NewRequestPage() {
                     onChange={(e) => setItemValue(parseFloat(e.target.value) || 0)}
                   />
                 </div>
+                 <div className="space-y-4 pt-4">
+                  <Label htmlFor="initial-percentage">Porcentaje de Inicial: {initialPercentage}%</Label>
+                  <Slider
+                    id="initial-percentage"
+                    min={30}
+                    max={100}
+                    step={5}
+                    value={[initialPercentage]}
+                    onValueChange={(value) => setInitialPercentage(value[0])}
+                  />
+                </div>
               </div>
               <div className="space-y-4">
                 <CardTitle className="flex items-center">
@@ -170,7 +183,7 @@ export default function NewRequestPage() {
                     <span className="font-medium">${itemValue.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Inicial (30%):</span>
+                    <span>Inicial ({initialPercentage}%):</span>
                     <span className="font-medium">${initialPayment.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-base border-t pt-2">
@@ -250,5 +263,3 @@ export default function NewRequestPage() {
     </div>
   );
 }
-
-    
