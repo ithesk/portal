@@ -61,6 +61,12 @@ export default function InternalLoginPage() {
               <Link href="/internal/dashboard">Iniciar Sesión</Link>
             </Button>
             <div className="mt-4 text-center text-sm">
+                No tienes cuenta?{" "}
+                <Link href="/internal/register" className="underline">
+                  Crear cuenta
+                </Link>
+            </div>
+            <div className="mt-1 text-center text-sm">
                 <Link href="/login" className="underline">
                   Ir al portal de clientes
                 </Link>
