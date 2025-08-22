@@ -1,11 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+    <circle cx="12" cy="12" r="2" fill="currentColor" />
+  </svg>
+);
+
 
 export default function LoginPage() {
   return (
@@ -13,11 +32,11 @@ export default function LoginPage() {
       <Card className="mx-auto max-w-sm w-full">
         <CardHeader className="text-center">
           <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
-             <Truck className="h-8 w-8" />
+             <AlzaIcon className="h-8 w-8" />
           </div>
-          <CardTitle className="text-2xl font-bold">EquipoTrack</CardTitle>
+          <CardTitle className="text-2xl font-bold">Alza</CardTitle>
           <CardDescription>
-            Ingrese su correo electrónico para iniciar sesión en su cuenta
+            Conectando puntos
           </CardDescription>
         </CardHeader>
         <CardContent>

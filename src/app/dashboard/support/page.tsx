@@ -90,7 +90,7 @@ export default function SupportPage() {
                   Para consultas no urgentes.
                 </p>
                  <Button variant="link" asChild className="p-0 h-auto">
-                   <a href="mailto:soporte@equipotrack.com">soporte@equipotrack.com</a>
+                   <a href="mailto:soporte@alza.com">soporte@alza.com</a>
                 </Button>
               </div>
             </div>

@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils';
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
-  title: 'EquipoTrack',
-  description: 'Financiamiento de equipo y estado de cuenta',
+  title: 'Alza',
+  description: 'Conectando puntos',
 };
 
 export default function RootLayout({
