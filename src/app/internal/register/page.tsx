@@ -1,7 +1,9 @@
 
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,6 +14,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
+import { Loader } from "lucide-react";
+
 
 const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
@@ -33,6 +40,33 @@ const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
   );
 
 export default function InternalRegisterPage() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      if (userCredential.user) {
+        await updateProfile(userCredential.user, { displayName: name });
+      }
+      router.push('/internal/dashboard');
+    } catch (error: any) {
+       toast({
+        variant: "destructive",
+        title: "Error de registro",
+        description: error.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
       <Card className="mx-auto max-w-sm w-full">
@@ -46,10 +80,16 @@ export default function InternalRegisterPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4">
+          <form onSubmit={handleRegister} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Nombre Completo</Label>
-              <Input id="name" placeholder="Juan Pérez" required />
+              <Input 
+                id="name" 
+                placeholder="Juan Pérez" 
+                required 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Correo Electrónico</Label>
@@ -58,14 +98,22 @@ export default function InternalRegisterPage() {
                 type="email"
                 placeholder="gestor@alza.com"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Contraseña</Label>
-              <Input id="password" type="password" required />
+              <Input 
+                id="password" 
+                type="password" 
+                required 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
-            <Button type="submit" className="w-full" asChild>
-              <Link href="/internal/dashboard">Crear Cuenta</Link>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? <Loader className="animate-spin" /> : 'Crear Cuenta'}
             </Button>
             <div className="mt-4 text-center text-sm">
               ¿Ya tienes una cuenta?{" "}
@@ -73,7 +121,7 @@ export default function InternalRegisterPage() {
                 Inicia Sesión
               </Link>
             </div>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>

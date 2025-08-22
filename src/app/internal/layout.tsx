@@ -2,7 +2,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth } from "@/lib/firebase";
+
 import {
   Users,
   Home,
@@ -13,6 +17,7 @@ import {
   FileText,
   Package,
   Cog,
+  Loader
 } from "lucide-react";
 
 import {
@@ -59,6 +64,15 @@ export default function InternalLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, loading, error] = useAuthState(auth);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/internal/login');
+    }
+  }, [user, loading, router]);
+
 
   const navItems = [
     { href: "/internal/dashboard", icon: Home, label: "Resumen" },
@@ -68,6 +82,18 @@ export default function InternalLayout({
     { href: "/internal/products", icon: Package, label: "Productos" },
     { href: "/internal/settings", icon: Cog, label: "Configuración" },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center">
+        <Loader className="h-12 w-12 animate-spin" />
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -123,11 +149,9 @@ export default function InternalLayout({
                 <span>Perfil</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/login">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Cerrar Sesión</span>
-                </Link>
+              <DropdownMenuItem onClick={() => auth.signOut()}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Cerrar Sesión</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
