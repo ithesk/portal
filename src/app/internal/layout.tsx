@@ -11,6 +11,8 @@ import {
   PanelLeft,
   Wrench,
   FileText,
+  Package,
+  Cog,
 } from "lucide-react";
 
 import {
@@ -60,9 +62,11 @@ export default function InternalLayout({
 
   const navItems = [
     { href: "/internal/dashboard", icon: Home, label: "Resumen" },
+    { href: "/internal/requests", icon: FileText, label: "Solicitudes" },
     { href: "/internal/clients", icon: Users, label: "Clientes" },
     { href: "/internal/equipment", icon: Wrench, label: "Equipos" },
-    { href: "/internal/requests", icon: FileText, label: "Solicitudes" },
+    { href: "/internal/products", icon: Package, label: "Productos" },
+    { href: "/internal/settings", icon: Cog, label: "Configuración" },
   ];
 
   return (
@@ -97,6 +101,37 @@ export default function InternalLayout({
             ))}
           </TooltipProvider>
         </nav>
+         <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
+            <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="overflow-hidden rounded-full"
+              >
+                 <Avatar>
+                  <AvatarImage src="https://placehold.co/32x32.png" alt="@gestor" data-ai-hint="person portrait" />
+                  <AvatarFallback>G</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="right">
+              <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <User className="mr-2 h-4 w-4" />
+                <span>Perfil</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/login">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Cerrar Sesión</span>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+         </nav>
       </aside>
       <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
@@ -138,35 +173,6 @@ export default function InternalLayout({
               {navItems.find(item => pathname.startsWith(item.href))?.label}
             </h1>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="overflow-hidden rounded-full"
-              >
-                 <Avatar>
-                  <AvatarImage src="https://placehold.co/32x32.png" alt="@gestor" data-ai-hint="person portrait" />
-                  <AvatarFallback>G</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>Perfil</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/internal/login">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Cerrar Sesión</span>
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </header>
         <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
           {children}
