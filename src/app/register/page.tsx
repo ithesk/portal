@@ -100,12 +100,20 @@ export default function RegisterPage() {
       router.push('/dashboard');
 
     } catch (error: any) {
-       console.error("¡ERROR! Ocurrió un problema durante el registro:", error);
-       toast({
-        variant: "destructive",
-        title: "Error de registro",
-        description: error.message,
-      });
+        if (error.code === 'auth/email-already-in-use') {
+            toast({
+                variant: "destructive",
+                title: "Correo ya registrado",
+                description: "Este correo electrónico ya está en uso. Por favor, inicia sesión o utiliza otro correo.",
+            });
+        } else {
+            console.error("¡ERROR! Ocurrió un problema durante el registro:", error);
+            toast({
+                variant: "destructive",
+                title: "Error de registro",
+                description: error.message,
+            });
+        }
     } finally {
       setLoading(false);
     }
