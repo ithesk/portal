@@ -7,10 +7,7 @@ import SignatureCanvas from "react-signature-canvas";
 import {
   ChevronLeft,
   ChevronRight,
-  Camera,
   CheckCircle,
-  Phone,
-  MessageSquare,
   Smartphone,
   Tablet,
   Calculator,
@@ -20,6 +17,8 @@ import {
   Info,
   Loader2,
   Search,
+  UserPlus,
+  UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,22 +44,9 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { cn } from "@/lib/utils";
 
 
@@ -76,29 +62,24 @@ interface Client {
     name: string;
     cedula: string;
     email: string;
+    phone?: string;
 }
 
 export default function NewRequestPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [verifyingClient, setVerifyingClient] = useState(false);
 
   const [currentStep, setCurrentStep] = useState(1);
   
   // Step 1
-  const [openClientSearch, setOpenClientSearch] = useState(false)
-  const [clients, setClients] = useState<Client[]>([]);
+  const [cedulaInput, setCedulaInput] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-
-  useEffect(() => {
-    const fetchClients = async () => {
-        const q = query(collection(db, "users"), where("role", "==", "Cliente"));
-        const querySnapshot = await getDocs(q);
-        const clientsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Client));
-        setClients(clientsData);
-    };
-    fetchClients();
-  }, []);
+  const [isNewClient, setIsNewClient] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
 
 
   // Step 2
@@ -126,6 +107,35 @@ export default function NewRequestPage() {
   const totalPaid = initialPayment + totalToPayInInstallments;
   // --- Fin de la Lógica de Cálculo ---
 
+  const handleVerifyCedula = async () => {
+    if (!cedulaInput) {
+        toast({ variant: "destructive", title: "Cédula requerida", description: "Por favor, ingresa un número de cédula."});
+        return;
+    }
+    setVerifyingClient(true);
+    setSelectedClient(null);
+    setIsNewClient(false);
+
+    try {
+        const q = query(collection(db, "users"), where("cedula", "==", cedulaInput));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            setIsNewClient(true);
+            toast({ title: "Cliente no encontrado", description: "Por favor, ingresa los datos para crear un nuevo cliente."});
+        } else {
+            const clientDoc = querySnapshot.docs[0];
+            setSelectedClient({ id: clientDoc.id, ...clientDoc.data() } as Client);
+            toast({ title: "Cliente Encontrado", description: "Se han cargado los datos del cliente existente."});
+        }
+    } catch (error: any) {
+        toast({ variant: "destructive", title: "Error al verificar", description: error.message });
+    } finally {
+        setVerifyingClient(false);
+    }
+  };
+
+
   const paymentDates = Array.from({ length: installments }, (_, i) => {
     const date = new Date(requestDate);
     date.setDate(date.getDate() + (i + 1) * 15);
@@ -150,11 +160,18 @@ export default function NewRequestPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (currentStep !== steps.length) {
-        if (currentStep === 1 && !selectedClient) {
-            toast({ variant: "destructive", title: "Cliente no seleccionado", description: "Debes buscar y seleccionar un cliente para continuar."});
+    if (currentStep === 1) {
+        if (!selectedClient && !isNewClient) {
+            toast({ variant: "destructive", title: "Cliente no verificado", description: "Debes verificar la cédula del cliente para continuar."});
             return;
         }
+        if (isNewClient && (!newClientName || !newClientEmail)) {
+            toast({ variant: "destructive", title: "Datos incompletos", description: "Debes completar el nombre y correo del nuevo cliente."});
+            return;
+        }
+    }
+
+    if (currentStep !== steps.length) {
         nextStep();
         return; 
     }
@@ -171,17 +188,38 @@ export default function NewRequestPage() {
         return;
     }
 
-    if (!selectedClient) {
-        toast({ variant: "destructive", title: "Error Fatal", description: "No hay un cliente seleccionado."});
-        setLoading(false);
-        return;
-    }
-
     try {
+        let finalClient = selectedClient;
+
+        // Create new client if needed
+        if (isNewClient) {
+            const newClientData = {
+                name: newClientName,
+                email: newClientEmail,
+                cedula: cedulaInput,
+                phone: newClientPhone,
+                role: "Cliente",
+                status: "Activo",
+                since: new Date().toLocaleDateString('es-DO'),
+                createdAt: new Date().toISOString(),
+            };
+            // We use the cedula as the document ID for new clients for simplicity in this flow,
+            // though using Firebase Auth UID is generally better.
+            const newClientRef = doc(db, "users", cedulaInput);
+            await setDoc(newClientRef, newClientData);
+            finalClient = { id: newClientRef.id, ...newClientData };
+        }
+
+        if (!finalClient) {
+            toast({ variant: "destructive", title: "Error Fatal", description: "No hay un cliente seleccionado o creado."});
+            setLoading(false);
+            return;
+        }
+
         await addDoc(collection(db, "requests"), {
-            userId: selectedClient.id,
-            cedula: selectedClient.cedula,
-            client: selectedClient.name,
+            userId: finalClient.id,
+            cedula: finalClient.cedula,
+            client: finalClient.name,
             itemType,
             itemValue,
             initialPercentage,
@@ -237,62 +275,61 @@ export default function NewRequestPage() {
                <div className="flex flex-col items-center justify-center pt-6 space-y-6">
                  <CardTitle>Información del Cliente</CardTitle>
                   <CardDescription>
-                    Busca y selecciona un cliente existente para iniciar una nueva solicitud de financiamiento.
+                    Ingresa la cédula del cliente. Si no existe, podrás crearlo.
                   </CardDescription>
                   
-                <Popover open={openClientSearch} onOpenChange={setOpenClientSearch}>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={openClientSearch}
-                            className="w-[400px] justify-between text-lg p-6"
-                        >
-                            {selectedClient ? selectedClient.name : "Buscar cliente por nombre o cédula..."}
-                            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0">
-                        <Command>
-                            <CommandInput placeholder="Buscar cliente..." />
-                            <CommandList>
-                                <CommandEmpty>No se encontraron clientes.</CommandEmpty>
-                                <CommandGroup>
-                                {clients.map((client) => (
-                                    <CommandItem
-                                        key={client.id}
-                                        value={`${client.name} ${client.cedula}`}
-                                        onSelect={() => {
-                                            setSelectedClient(client)
-                                            setOpenClientSearch(false)
-                                        }}
-                                    >
-                                        <CheckCircle
-                                            className={cn(
-                                                "mr-2 h-4 w-4",
-                                                selectedClient?.id === client.id ? "opacity-100" : "opacity-0"
-                                            )}
-                                        />
-                                        <div>
-                                            <p>{client.name}</p>
-                                            <p className="text-xs text-muted-foreground">{client.cedula}</p>
-                                        </div>
-                                    </CommandItem>
-                                ))}
-                                </CommandGroup>
-                            </CommandList>
-                        </Command>
-                    </PopoverContent>
-                </Popover>
+                  <div className="flex w-full max-w-sm items-center space-x-2">
+                    <Input 
+                        id="cedula" 
+                        placeholder="Ingresa número de cédula" 
+                        value={cedulaInput}
+                        onChange={(e) => setCedulaInput(e.target.value)}
+                        disabled={verifyingClient}
+                    />
+                    <Button type="button" onClick={handleVerifyCedula} disabled={verifyingClient}>
+                        {verifyingClient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        Verificar
+                    </Button>
+                 </div>
 
                 {selectedClient && (
-                    <Card className="w-[400px] bg-muted/50">
+                    <Card className="w-full max-w-sm bg-green-50 border-green-200">
                         <CardHeader>
-                            <CardTitle className="text-xl">{selectedClient.name}</CardTitle>
-                            <CardDescription>Cédula: {selectedClient.cedula}</CardDescription>
+                            <CardTitle className="flex items-center text-green-800">
+                                <UserCheck className="mr-2"/> Cliente Encontrado
+                            </CardTitle>
+                            <CardDescription className="text-green-700">Cédula: {selectedClient.cedula}</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                             <p className="text-sm text-muted-foreground">Correo: {selectedClient.email}</p>
+                        <CardContent className="text-green-900">
+                             <p><b>Nombre:</b> {selectedClient.name}</p>
+                             <p><b>Correo:</b> {selectedClient.email || 'No registrado'}</p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                 {isNewClient && (
+                    <Card className="w-full max-w-sm bg-blue-50 border-blue-200">
+                        <CardHeader>
+                           <CardTitle className="flex items-center text-blue-800">
+                                <UserPlus className="mr-2"/> Crear Nuevo Cliente
+                            </CardTitle>
+                            <CardDescription className="text-blue-700">
+                                Cédula: {cedulaInput}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="new-client-name" className="text-blue-900">Nombre Completo</Label>
+                                <Input id="new-client-name" placeholder="Juan Pérez" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} />
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="new-client-email" className="text-blue-900">Correo Electrónico</Label>
+                                <Input id="new-client-email" type="email" placeholder="juan.perez@correo.com" value={newClientEmail} onChange={(e) => setNewClientEmail(e.target.value)} />
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="new-client-phone" className="text-blue-900">Teléfono (Opcional)</Label>
+                                <Input id="new-client-phone" type="tel" placeholder="809-555-1234" value={newClientPhone} onChange={(e) => setNewClientPhone(e.target.value)} />
+                            </div>
                         </CardContent>
                     </Card>
                 )}
@@ -435,7 +472,7 @@ export default function NewRequestPage() {
                       <FileSignature className="mr-2" /> Contrato de Financiamiento
                   </CardTitle>
                   <div className="border rounded-lg p-4 h-[350px] overflow-y-auto text-sm space-y-4 bg-muted/50">
-                      <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy", { locale: es })}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente <strong>{selectedClient?.name || '...'}</strong> con C.I. <strong>{selectedClient?.cedula || "..."}</strong>.</p>
+                      <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy", { locale: es })}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente <strong>{selectedClient?.name || newClientName}</strong> con C.I. <strong>{cedulaInput}</strong>.</p>
                       <p>El cliente solicita el financiamiento de un <strong>{itemType || 'equipo'}</strong> valorado en <strong>RD$ {itemValue.toFixed(2)}</strong>.</p>
                       <p>El cliente se compromete a pagar una inicial de <strong>RD$ {initialPayment.toFixed(2)}</strong> ({initialPercentage}%) en la fecha de hoy.</p>
                       <p>El monto restante de <strong>RD$ {financingAmount.toFixed(2)}</strong> más los intereses de <strong>RD$ {totalInterest.toFixed(2)}</strong> (Total a pagar en cuotas: <strong>RD$ {totalToPayInInstallments.toFixed(2)}</strong>) será pagado en <strong>{installments} cuotas quincenales</strong> de aproximadamente <strong>RD$ {biweeklyPayment.toFixed(2)}</strong> cada una.</p>
