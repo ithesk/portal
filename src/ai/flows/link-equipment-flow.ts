@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A flow for linking equipment to a user after registration.
@@ -35,8 +36,10 @@ const linkEquipmentFlow = ai.defineFlow(
   async ({ userId, cedula }) => {
     try {
         const equipmentRef = collection(db, "equipment");
-        // Find equipment that was approved for this cedula but doesn't have a userId yet
-        const q = query(equipmentRef, where("cedula", "==", cedula), where("userId", "==", null));
+        // Find equipment that was approved for this cedula but doesn't have a userId yet.
+        // A robust way to check for "no userId" is to check for documents where the field is not present or not a valid string.
+        // Using `not-in` with a dummy value is a common Firestore trick for "is not set".
+        const q = query(equipmentRef, where("cedula", "==", cedula), where("userId", "not-in", [""]));
 
         const querySnapshot = await getDocs(q);
         

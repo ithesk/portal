@@ -93,22 +93,8 @@ export default function RequestsPage() {
 
         let userId = null;
         let userName = request.client; // Use name from request as fallback
-
-        if (!userSnapshot.empty) {
-          const userDoc = userSnapshot.docs[0];
-          userId = userDoc.id;
-          userName = userDoc.data().name;
-        } else {
-            toast({
-                title: "Cliente no registrado",
-                description: "Se creará el equipo sin vincular. Se asociará cuando el cliente se registre.",
-            });
-        }
         
-        // 2. Create new equipment document
-        const newEquipmentRef = doc(collection(db, "equipment"));
-        const equipmentData = {
-            userId: userId, // This can be null if user doesn't exist yet
+        const equipmentData: any = {
             cedula: request.cedula, // Store cedula for future linking
             name: request.itemType === 'phone' ? 'Teléfono' : 'Tablet',
             status: "Financiado",
@@ -120,6 +106,22 @@ export default function RequestsPage() {
             createdAt: serverTimestamp(),
             requestId: request.id,
         };
+
+        if (!userSnapshot.empty) {
+          const userDoc = userSnapshot.docs[0];
+          userId = userDoc.id;
+          userName = userDoc.data().name;
+          equipmentData.userId = userId;
+          equipmentData.client = userName;
+        } else {
+            toast({
+                title: "Cliente no registrado",
+                description: "Se creará el equipo sin vincular. Se asociará cuando el cliente se registre.",
+            });
+        }
+        
+        // 2. Create new equipment document
+        const newEquipmentRef = doc(collection(db, "equipment"));
         batch.set(newEquipmentRef, equipmentData);
       }
 
