@@ -16,6 +16,7 @@ import {
   ScanLine,
   FileSignature,
   Trash2,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,9 @@ import {
 import { Slider } from "@/components/ui/slider";
 import Link from "next/link";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 const steps = [
   { id: 1, title: "Verificación de Identidad" },
@@ -51,23 +55,26 @@ const steps = [
 export default function NewRequestPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [itemType, setItemType] = useState<string | undefined>();
-  const [itemValue, setItemValue] = useState(500);
-  const [initialPercentage, setInitialPercentage] = useState(30);
+  const [itemValue, setItemValue] = useState(12500);
+  const [initialPercentage, setInitialPercentage] = useState(40);
   const [installments, setInstallments] = useState(6);
   const [requestDate] = useState(new Date());
   const sigPad = useRef<SignatureCanvas>(null);
 
+  // --- Lógica de Cálculo Actualizada ---
   const initialPayment = itemValue * (initialPercentage / 100);
   const financingAmount = itemValue - initialPayment;
-  const interestRate = 0.1268;
+  const interestRate = 0.525; // 52.5% de interés fijo sobre el monto a financiar
   const totalInterest = financingAmount * interestRate;
-  const totalToPay = financingAmount + totalInterest;
-  const biweeklyPayment = financingAmount > 0 ? totalToPay / installments : 0;
+  const totalToPayInInstallments = financingAmount + totalInterest;
+  const biweeklyPayment = installments > 0 ? totalToPayInInstallments / installments : 0;
+  const totalPaid = initialPayment + totalToPayInInstallments;
+  // --- Fin de la Lógica de Cálculo ---
 
   const paymentDates = Array.from({ length: installments }, (_, i) => {
     const date = new Date(requestDate);
     date.setDate(date.getDate() + (i + 1) * 15);
-    return format(date, "dd/MM/yyyy");
+    return format(date, "dd/MM/yyyy", { locale: es });
   });
 
   const progress = (currentStep / steps.length) * 100;
@@ -173,42 +180,12 @@ export default function NewRequestPage() {
                   </Select>
                 </div>
 
-                {itemType === 'phone' && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone-brand">Marca del Teléfono</Label>
-                      <Select>
-                        <SelectTrigger id="phone-brand">
-                          <SelectValue placeholder="Selecciona una marca" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="apple">Apple</SelectItem>
-                          <SelectItem value="samsung">Samsung</SelectItem>
-                          <SelectItem value="xiaomi">Xiaomi</SelectItem>
-                          <SelectItem value="other">Otra</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                     <div className="space-y-4 pt-2">
-                        <Label htmlFor="installments">Cuotas: {installments} Quincenales</Label>
-                        <Slider
-                          id="installments"
-                          min={3}
-                          max={7}
-                          step={1}
-                          value={[installments]}
-                          onValueChange={(value) => setInstallments(value[0])}
-                        />
-                      </div>
-                  </>
-                )}
-
                 <div className="space-y-2">
-                  <Label htmlFor="item-value">Valor del Artículo ($)</Label>
+                  <Label htmlFor="item-value">Precio del Equipo (RD$)</Label>
                   <Input
                     id="item-value"
                     type="number"
-                    placeholder="Ej: 500"
+                    placeholder="Ej: 12500"
                     value={itemValue || ""}
                     onChange={(e) => setItemValue(parseFloat(e.target.value) || 0)}
                   />
@@ -217,13 +194,24 @@ export default function NewRequestPage() {
                   <Label htmlFor="initial-percentage">Porcentaje de Inicial: {initialPercentage}%</Label>
                   <Slider
                     id="initial-percentage"
-                    min={30}
+                    min={10}
                     max={100}
                     step={5}
                     value={[initialPercentage]}
                     onValueChange={(value) => setInitialPercentage(value[0])}
                   />
                 </div>
+                <div className="space-y-4 pt-2">
+                    <Label htmlFor="installments">Número de Cuotas: {installments} Quincenales</Label>
+                    <Slider
+                      id="installments"
+                      min={2}
+                      max={12}
+                      step={1}
+                      value={[installments]}
+                      onValueChange={(value) => setInstallments(value[0])}
+                    />
+                  </div>
               </div>
               <div className="space-y-4">
                 <CardTitle className="flex items-center">
@@ -231,28 +219,44 @@ export default function NewRequestPage() {
                 </CardTitle>
                 <div className="rounded-lg border bg-muted p-4 space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span>Valor del Artículo:</span>
-                    <span className="font-medium">${itemValue.toFixed(2)}</span>
+                    <span>Precio del Equipo:</span>
+                    <span className="font-medium">RD$ {itemValue.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Inicial ({initialPercentage}%):</span>
-                    <span className="font-medium">${initialPayment.toFixed(2)}</span>
+                    <span className="font-medium">RD$ {initialPayment.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between font-semibold text-base border-t pt-2">
+                   <div className="flex justify-between font-semibold text-base border-t pt-2">
                     <span>Monto a Financiar:</span>
-                    <span>${financingAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Cuotas:</span>
-                    <span>{installments} Quincenales</span>
+                    <span>RD$ {financingAmount.toFixed(2)}</span>
                   </div>
                    <div className="flex justify-between text-muted-foreground">
-                    <span>Total Intereses (Aprox.):</span>
-                    <span>${totalInterest.toFixed(2)}</span>
+                    <span>Total Intereses ({(interestRate * 100).toFixed(1)}%):</span>
+                    <span>RD$ {totalInterest.toFixed(2)}</span>
+                  </div>
+                   <div className="flex justify-between text-muted-foreground">
+                    <span>Total en cuotas:</span>
+                    <span>RD$ {totalToPayInInstallments.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-lg text-primary border-t pt-2 mt-2">
-                    <span>Cuota Quincenal Aprox:</span>
-                    <span>${biweeklyPayment.toFixed(2)}</span>
+                    <span>Cuota Quincenal:</span>
+                    <span>RD$ {biweeklyPayment.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-muted-foreground pt-2 border-t">
+                      <span>Costo Total (Inicial + Cuotas):</span>
+                       <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                 <span className="font-bold flex items-center gap-1">
+                                    RD$ {totalPaid.toFixed(2)}
+                                    <Info className="h-3 w-3" />
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Este es el monto total que el cliente pagará al final del financiamiento.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
               </div>
@@ -283,10 +287,10 @@ export default function NewRequestPage() {
                     <FileSignature className="mr-2" /> Contrato de Financiamiento
                 </CardTitle>
                 <div className="border rounded-lg p-4 h-[350px] overflow-y-auto text-sm space-y-4 bg-muted/50">
-                    <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy")}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente con C.I. <strong>V-12.345.678</strong>.</p>
-                    <p>El cliente solicita el financiamiento de un <strong>{itemType === 'phone' ? 'Teléfono' : 'Tablet'}</strong> valorado en <strong>${itemValue.toFixed(2)}</strong>.</p>
-                    <p>El cliente se compromete a pagar una inicial de <strong>${initialPayment.toFixed(2)}</strong> ({initialPercentage}%) en la fecha de hoy.</p>
-                    <p>El monto restante de <strong>${financingAmount.toFixed(2)}</strong> será pagado en <strong>{installments} cuotas quincenales</strong> de aproximadamente <strong>${biweeklyPayment.toFixed(2)}</strong> cada una.</p>
+                    <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy", { locale: es })}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente con C.I. <strong>V-12.345.678</strong>.</p>
+                    <p>El cliente solicita el financiamiento de un <strong>{itemType === 'phone' ? 'Teléfono' : 'Tablet'}</strong> valorado en <strong>RD$ {itemValue.toFixed(2)}</strong>.</p>
+                    <p>El cliente se compromete a pagar una inicial de <strong>RD$ {initialPayment.toFixed(2)}</strong> ({initialPercentage}%) en la fecha de hoy.</p>
+                    <p>El monto restante de <strong>RD$ {financingAmount.toFixed(2)}</strong> más los intereses de <strong>RD$ {totalInterest.toFixed(2)}</strong> (Total a pagar en cuotas: <strong>RD$ {totalToPayInInstallments.toFixed(2)}</strong>) será pagado en <strong>{installments} cuotas quincenales</strong> de aproximadamente <strong>RD$ {biweeklyPayment.toFixed(2)}</strong> cada una.</p>
                     
                     <div>
                         <h4 className="font-semibold mb-2">Calendario de Pagos (Estimado):</h4>
@@ -326,9 +330,9 @@ export default function NewRequestPage() {
                 <ChevronLeft className="mr-2" /> Anterior
               </Button>
             )}
-             {currentStep === 5 && (
+             {currentStep === 1 && (
                  <Button variant="ghost" asChild>
-                    <Link href="/internal/requests">Cancelar</Link>
+                    <Link href="/internal/dashboard">Cancelar</Link>
                 </Button>
              )}
           </div>
