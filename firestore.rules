@@ -2,68 +2,60 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
-    }
 
-    // --- PUBLIC ACCESS ---
-    // Anyone can read from the products collection.
-    // This is for the public-facing storefront.
-    match /products/{productId} {
-      allow get, list: if true;
-    }
-
-    // --- CLIENT (Authenticated Users) ACCESS ---
-    
-    // An authenticated user can read and update their OWN user document.
-    match /users/{userId} {
-      allow get, update: if request.auth.uid == userId;
-      // Anyone can create a user document (for registration).
-      allow create: if request.auth.uid != null;
-    }
-
-    // An authenticated user can read equipment documents where their userId matches.
-    match /equipment/{equipmentId} {
-      allow get, list: if request.auth.uid == resource.data.userId;
-    }
-
-    // An authenticated user can read payments where their userId matches.
-    match /payments/{paymentId} {
-      allow get, list: if request.auth.uid == resource.data.userId;
-    }
-
-    // Requests are handled by a secure backend flow, so client access is denied.
-    match /requests/{requestId} {
-      allow read, write: if false; 
-    }
-
-    // --- INTERNAL (Admin/Gestor) ACCESS ---
-    // A function to check if the requesting user has an Admin or Gestor role.
-    function isInternalUser() {
+    // Función para verificar si un usuario es un gestor (Admin o Gestor)
+    function isManager() {
+      // Obtiene el documento del usuario que hace la solicitud y verifica su rol.
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
     }
 
-    // Internal users can manage products.
-    match /products/{productId} {
-      allow write: if isInternalUser();
-    }
-    
-    // Internal users can manage clients (all fields in the users collection).
+    // Reglas para la colección de usuarios
     match /users/{userId} {
-      allow list, delete: if isInternalUser();
+      // Un usuario puede leer y actualizar su propio perfil.
+      // Un gestor puede leer cualquier perfil.
+      allow get, update: if request.auth.uid == userId || isManager();
+
+      // Un usuario puede crear su propia cuenta.
+      // Un gestor puede crear nuevas cuentas (clientes).
+      allow create: if request.auth.uid == userId || isManager();
+
+      // Solo los gestores pueden listar o eliminar usuarios.
+      allow list, delete: if isManager();
     }
-    
-    // Internal users can manage all requests, equipment, and payments.
-    match /requests/{docId} {
-      allow read, write: if isInternalUser();
+
+    // Reglas para la colección de productos
+    match /products/{productId} {
+      // CUALQUIERA puede leer los productos. Esto es para la página pública.
+      allow get, list: if true;
+      
+      // Solo los gestores pueden crear, actualizar o eliminar productos.
+      allow write: if isManager();
     }
-     match /equipment/{docId} {
-      allow read, write: if isInternalUser();
+
+    // Reglas para la colección de solicitudes de financiamiento
+    match /requests/{requestId} {
+        // Un gestor puede leer y escribir cualquier solicitud.
+        allow read, write: if isManager();
     }
-     match /payments/{docId} {
-      allow read, write: if isInternalUser();
+
+    // Reglas para la colección de equipos
+    match /equipment/{equipmentId} {
+      // Un cliente puede leer los equipos que le pertenecen (su userId está en el documento).
+      // Un gestor puede leer cualquier equipo.
+      allow get, list: if resource.data.userId == request.auth.uid || isManager();
+
+      // Solo los gestores pueden crear, actualizar o eliminar equipos.
+      allow write: if isManager();
+    }
+
+    // Reglas para la colección de pagos
+    match /payments/{paymentId} {
+      // Un cliente puede leer los pagos que le pertenecen.
+      // Un gestor puede leer cualquier pago.
+      allow get, list: if resource.data.userId == request.auth.uid || isManager();
+
+      // Solo los gestores pueden crear, actualizar o eliminar pagos.
+      allow write: if isManager();
     }
   }
 }
