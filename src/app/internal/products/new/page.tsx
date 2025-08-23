@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -46,6 +46,8 @@ export default function NewProductPage() {
     const [imageUrl, setImageUrl] = useState("https://placehold.co/400x400.png");
     const [aiHint, setAiHint] = useState("");
     const [description, setDescription] = useState("");
+    
+    const imageUrlInputRef = useRef<HTMLInputElement>(null);
 
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -195,7 +197,7 @@ export default function NewProductPage() {
                         data-ai-hint={aiHint || 'product image'}
                     />
                     <div className="grid grid-cols-2 gap-2">
-                        <Button variant="outline">
+                        <Button variant="outline" type="button" onClick={() => imageUrlInputRef.current?.focus()}>
                             <Upload className="mr-2 h-4 w-4" />
                             Subir
                         </Button>
@@ -205,6 +207,7 @@ export default function NewProductPage() {
                             placeholder="O pega una URL de imagen"
                             value={imageUrl.startsWith('https://placehold.co') ? '' : imageUrl}
                             onChange={(e) => setImageUrl(e.target.value || 'https://placehold.co/400x400.png')}
+                            ref={imageUrlInputRef}
                          />
                     </div>
                      <div className="grid gap-3 mt-4">

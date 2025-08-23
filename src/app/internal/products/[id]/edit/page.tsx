@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -40,6 +40,7 @@ export default function EditProductPage() {
     const [fetching, setFetching] = useState(true);
     
     const [product, setProduct] = useState<any>(null);
+    const imageUrlInputRef = useRef<HTMLInputElement>(null);
 
     const productId = params.id as string;
 
@@ -253,7 +254,7 @@ export default function EditProductPage() {
                         data-ai-hint={product?.aiHint || 'product image'}
                     />
                     <div className="grid grid-cols-2 gap-2">
-                        <Button variant="outline" type="button">
+                        <Button variant="outline" type="button" onClick={() => imageUrlInputRef.current?.focus()}>
                             <Upload className="mr-2 h-4 w-4" />
                             Subir
                         </Button>
@@ -263,6 +264,7 @@ export default function EditProductPage() {
                             placeholder="O pega una URL de imagen"
                             value={product?.imageUrl.startsWith('https://placehold.co') ? '' : product?.imageUrl}
                             onChange={(e) => setProduct((prev: any) => ({...prev, imageUrl: e.target.value || 'https://placehold.co/400x400.png'}))}
+                            ref={imageUrlInputRef}
                          />
                     </div>
                      <div className="grid gap-3 mt-4">
@@ -395,4 +397,3 @@ function EditProductPageSkeleton() {
         </div>
     );
 }
-
