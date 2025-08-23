@@ -12,7 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 
 const FetchRequestsInputSchema = z.object({
@@ -52,13 +52,25 @@ const fetchRequestsFlow = ai.defineFlow(
         const requestsData = querySnapshot.docs.map((doc) => {
             const data = doc.data();
             
-            // Handle Firestore Timestamp conversion to a simple string
-            let dateStr = data.date; // Fallback to existing date field
-            if (data.createdAt instanceof Timestamp) {
+            let dateStr: string;
+
+            if (data.createdAt && data.createdAt instanceof Timestamp) {
+                // Handle Firestore Timestamp
                 dateStr = format(data.createdAt.toDate(), "yyyy-MM-dd");
-            } else if (typeof data.createdAt === 'string') {
-                // Handle if it's already a string, though Timestamp is expected
-                dateStr = format(new Date(data.createdAt), "yyyy-MM-dd");
+            } else if (data.createdAt && typeof data.createdAt === 'string') {
+                // Handle ISO string dates
+                try {
+                    dateStr = format(parseISO(data.createdAt), "yyyy-MM-dd");
+                } catch {
+                     // Fallback for non-standard string dates, or use a default
+                     dateStr = format(new Date(), "yyyy-MM-dd");
+                }
+            } else if (data.date && typeof data.date === 'string') {
+                // Fallback to the 'date' field if it exists
+                dateStr = data.date;
+            } else {
+                 // Final fallback if no valid date is found
+                dateStr = format(new Date(), "yyyy-MM-dd");
             }
             
             return {
@@ -73,7 +85,6 @@ const fetchRequestsFlow = ai.defineFlow(
         return requestsData;
     } catch (error) {
         console.error("Error in fetchRequestsFlow: ", error);
-        // In a real app, you might want more robust error handling
         return [];
     }
   }
