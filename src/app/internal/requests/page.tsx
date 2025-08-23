@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, Filter, PlusCircle } from "lucide-react";
+import { Check, X, Filter, PlusCircle, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,8 +29,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { collection, getDocs, query, orderBy, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, updateDoc, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Request {
@@ -44,28 +45,58 @@ interface Request {
 export default function RequestsPage() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const fetchRequests = async () => {
+    try {
+      setLoading(true);
+      const requestsRef = collection(db, "requests");
+      const q = query(requestsRef, orderBy("date", "desc"));
+      const querySnapshot = await getDocs(q);
+      const requestsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+        id: doc.id,
+        ...doc.data(),
+      } as Request));
+      setRequests(requestsData);
+    } catch (error) {
+      console.error("Error fetching requests: ", error);
+      toast({
+          variant: "destructive",
+          title: "Error al cargar solicitudes",
+          description: "Hubo un problema al cargar los datos."
+      })
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        setLoading(true);
-        const requestsRef = collection(db, "requests");
-        const q = query(requestsRef, orderBy("date", "desc"));
-        const querySnapshot = await getDocs(q);
-        const requestsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Request));
-        setRequests(requestsData);
-      } catch (error) {
-        console.error("Error fetching requests: ", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchRequests();
   }, []);
+
+  const handleUpdateRequestStatus = async (id: string, status: "Aprobado" | "Rechazado") => {
+    setUpdatingId(id);
+    try {
+      const requestDocRef = doc(db, "requests", id);
+      await updateDoc(requestDocRef, { status });
+      toast({
+        title: "Solicitud Actualizada",
+        description: `La solicitud ha sido marcada como ${status.toLowerCase()}.`,
+      });
+      fetchRequests(); // Refetch data to update the UI
+    } catch (error) {
+      console.error("Error updating request status: ", error);
+       toast({
+          variant: "destructive",
+          title: "Error al actualizar",
+          description: "No se pudo actualizar el estado de la solicitud."
+      })
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
 
   return (
     <Card>
@@ -131,7 +162,7 @@ export default function RequestsPage() {
             ) : (
               requests.map((req) => (
                 <TableRow key={req.id}>
-                  <TableCell className="font-medium">{req.id}</TableCell>
+                  <TableCell className="font-medium">{req.id.substring(0, 8)}...</TableCell>
                   <TableCell>{req.client}</TableCell>
                   <TableCell>{req.type}</TableCell>
                   <TableCell className="hidden md:table-cell">{req.date}</TableCell>
@@ -149,11 +180,23 @@ export default function RequestsPage() {
                   <TableCell className="text-right">
                     {req.status === "Pendiente de Aprobación" && (
                       <div className="flex gap-2 justify-end">
-                        <Button variant="outline" size="icon" className="h-8 w-8">
-                          <Check className="h-4 w-4" />
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => handleUpdateRequestStatus(req.id, "Aprobado")}
+                          disabled={updatingId === req.id}
+                        >
+                          {updatingId === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                         </Button>
-                        <Button variant="destructive" size="icon" className="h-8 w-8">
-                          <X className="h-4 w-4" />
+                        <Button 
+                          variant="destructive" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => handleUpdateRequestStatus(req.id, "Rechazado")}
+                          disabled={updatingId === req.id}
+                        >
+                           {updatingId === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
                         </Button>
                       </div>
                     )}
