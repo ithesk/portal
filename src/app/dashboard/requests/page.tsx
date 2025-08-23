@@ -67,6 +67,8 @@ export default function ClientRequestsPage() {
         }
         const cedula = userDocSnapshot.docs[0].data().cedula;
 
+        console.log("Depurando cédula para el flow:", cedula); // <<<< DEBUGGING LINE
+
         if (!cedula) {
             setLoading(false);
             toast({
