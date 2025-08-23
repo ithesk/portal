@@ -18,13 +18,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { collection, getDocs, query, where, orderBy, doc, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, doc, QueryDocumentSnapshot, DocumentData, Timestamp } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FileText } from "lucide-react";
+import { fetchRequestsForCedula, FetchRequestsOutput } from "@/ai/flows/fetch-requests-flow";
+import { format } from "date-fns";
 
 
 interface Request extends DocumentData {
@@ -36,7 +38,7 @@ interface Request extends DocumentData {
 }
 
 export default function ClientRequestsPage() {
-  const [requests, setRequests] = useState<Request[]>([]);
+  const [requests, setRequests] = useState<FetchRequestsOutput>([]);
   const [loading, setLoading] = useState(true);
   const [user, userLoading] = useAuthState(auth);
   const { toast } = useToast();
@@ -51,22 +53,19 @@ export default function ClientRequestsPage() {
       try {
         setLoading(true);
         // First get the user's cedula from the 'users' collection
-        const userDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', user.uid)));
-        if (userDoc.empty) {
+        const userDocQuery = query(collection(db, 'users'), where('__name__', '==', user.uid));
+        const userDocSnapshot = await getDocs(userDocQuery);
+
+        if (userDocSnapshot.empty) {
             setLoading(false);
             return;
         }
-        const cedula = userDoc.docs[0].data().cedula;
+        const cedula = userDocSnapshot.docs[0].data().cedula;
 
-        // Then query requests with that cedula
-        const requestsRef = collection(db, "requests");
-        const q = query(requestsRef, where("cedula", "==", cedula), orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
-        const requestsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Request));
+        // Then, call the secure Genkit flow to get requests
+        const requestsData = await fetchRequestsForCedula({ cedula });
         setRequests(requestsData);
+
       } catch (error) {
         console.error("Error fetching requests: ", error);
         toast({
