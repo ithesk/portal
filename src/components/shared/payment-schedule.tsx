@@ -127,14 +127,14 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
     }, [userId, onScheduleCalculated]);
 
     return (
-        <Card>
+        <Card className="flex flex-col">
             <CardHeader className="px-7">
                 <CardTitle>Próximos Pagos</CardTitle>
                 <CardDescription>
                     Tu calendario de pagos pendientes.
                 </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 min-h-0">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -187,5 +187,3 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
         </Card>
     );
 }
-
-    

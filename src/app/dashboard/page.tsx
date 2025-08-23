@@ -180,14 +180,14 @@ export default function Dashboard() {
         </Card>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader className="px-7">
             <CardTitle>Actividad Reciente</CardTitle>
             <CardDescription>
               Un resumen de sus pagos y actividades recientes.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1 min-h-0">
             <Table>
               <TableHeader>
                 <TableRow>
