@@ -18,57 +18,84 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FileText } from "lucide-react";
-import { fetchRequestsForUser, FetchRequestsOutput } from "@/ai/flows/fetch-requests-flow";
+import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { format, parseISO } from "date-fns";
 
+interface Request {
+    id: string;
+    type: string;
+    date: string;
+    status: string;
+    financingAmount: number | null;
+}
 
 export default function ClientRequestsPage() {
-  const [requests, setRequests] = useState<FetchRequestsOutput>([]);
+  const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, userLoading] = useAuthState(auth);
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchRequests = async () => {
-      console.log("CLIENT DEBUG: Iniciando fetchRequests. User loading:", userLoading);
-      if (userLoading) {
-        console.log("CLIENT DEBUG: userLoading es true, esperando...");
-        return;
-      }
-
-      console.log("CLIENT DEBUG: userLoading ha terminado. Objeto de usuario:", user);
+      if (userLoading) return;
+      
       if (!user) {
-        if (!userLoading) {
-            setLoading(false);
-            console.log("CLIENT DEBUG: No hay usuario autenticado. Saliendo.");
-        }
+        setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-        console.log(`CLIENT DEBUG: Llamando al flow 'fetchRequestsForUser' con userId: ${user.uid}`);
         
-        const requestsData = await fetchRequestsForUser({ userId: user.uid });
+        const requestsRef = collection(db, "requests");
+        const q = query(
+            requestsRef, 
+            where("userId", "==", user.uid),
+            orderBy("createdAt", "desc")
+        );
+
+        const querySnapshot = await getDocs(q);
         
-        console.log("CLIENT DEBUG: Flow ejecutado exitosamente. Datos recibidos:", JSON.stringify(requestsData, null, 2));
+        const requestsData = querySnapshot.docs.map((doc) => {
+            const data = doc.data();
+            
+            let dateStr: string;
+            if (data.createdAt && typeof data.createdAt.toDate === 'function') { 
+                dateStr = format(data.createdAt.toDate(), "yyyy-MM-dd");
+            } else if (data.createdAt && typeof data.createdAt === 'string') {
+                 dateStr = format(parseISO(data.createdAt), "yyyy-MM-dd");
+            } else if (data.date && typeof data.date === 'string') {
+                dateStr = data.date;
+            } else {
+                dateStr = format(new Date(), "yyyy-MM-dd");
+            }
+            
+            return {
+                id: doc.id,
+                type: data.type || "Solicitud de Financiamiento",
+                status: data.status || "Desconocido",
+                date: dateStr,
+                financingAmount: data.financingAmount ?? null,
+            };
+        });
+
         setRequests(requestsData);
 
-      } catch (error) {
-        console.error("CLIENT DEBUG: Ocurrió un error CRÍTICO al llamar a fetchRequestsForUser.", error);
+      } catch (error: any) {
+        console.error("Error fetching requests directly from client:", error);
         toast({
             variant: "destructive",
             title: "Error al cargar solicitudes",
-            description: "Hubo un problema al cargar tus solicitudes. Revisa la consola para más detalles."
+            description: "Hubo un problema al cargar tus solicitudes. Revisa la consola para más detalles. " + error.message,
         })
       } finally {
         setLoading(false);
-        console.log("CLIENT DEBUG: fetchRequests finalizado.");
       }
     };
 
