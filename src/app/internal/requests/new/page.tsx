@@ -71,7 +71,7 @@ export default function NewRequestPage() {
   const [phone, setPhone] = useState("");
 
   // Step 3
-  const [itemType, setItemType] = useState<string | undefined>();
+  const [itemType, setItemType] = useState<string>("");
   const [itemValue, setItemValue] = useState(12500);
   const [initialPercentage, setInitialPercentage] = useState(40);
   const [installments, setInstallments] = useState(6);
@@ -120,7 +120,8 @@ export default function NewRequestPage() {
     e.preventDefault();
     
     if (currentStep !== steps.length) {
-      return; 
+        nextStep();
+        return; 
     }
     
     setLoading(true);
@@ -252,7 +253,7 @@ export default function NewRequestPage() {
                   </CardDescription>
                   <div className="space-y-2">
                     <Label htmlFor="item-type">Tipo de Artículo</Label>
-                    <Select onValueChange={setItemType} value={itemType}>
+                    <Select onValueChange={setItemType} value={itemType} required>
                       <SelectTrigger id="item-type">
                         <SelectValue placeholder="Selecciona un artículo" />
                       </SelectTrigger>
@@ -431,7 +432,7 @@ export default function NewRequestPage() {
             </div>
             <div>
               {currentStep < steps.length ? (
-                <Button type="button" onClick={nextStep}>
+                <Button type="submit">
                    Siguiente <ChevronRight className="ml-2" />
                 </Button>
               ) : (
@@ -446,5 +447,7 @@ export default function NewRequestPage() {
       </form>
     </div>
   );
+
+    
 
     
