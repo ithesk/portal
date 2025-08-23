@@ -46,12 +46,17 @@ export default function PaymentsPage() {
       try {
         setLoading(true);
         const paymentsRef = collection(db, "payments");
-        const q = query(paymentsRef, where("userId", "==", user.uid), orderBy("date", "desc"));
+        // Remove orderBy from the query to avoid the index error
+        const q = query(paymentsRef, where("userId", "==", user.uid));
         const querySnapshot = await getDocs(q);
         const paymentsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
           id: doc.id,
           ...doc.data(),
         } as Payment));
+        
+        // Sort the data on the client side
+        paymentsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
         setPayments(paymentsData);
       } catch (error) {
         console.error("Error fetching payments: ", error);
