@@ -118,13 +118,12 @@ export default function NewRequestPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
+    
     if (currentStep !== steps.length) {
-      nextStep();
-      setLoading(false);
-      return;
+      return; 
     }
+    
+    setLoading(true);
     
     if (sigPad.current?.isEmpty()) {
         toast({
@@ -148,7 +147,7 @@ export default function NewRequestPage() {
             interestRate,
             totalInterest,
             installments,
-            biweeklyPayment,
+            biweeklyPayment: parseFloat(biweeklyPayment.toFixed(2)),
             totalPaid,
             imei,
             signatureDataUrl: sigPad.current?.toDataURL(),
@@ -431,18 +430,21 @@ export default function NewRequestPage() {
               )}
             </div>
             <div>
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {currentStep < steps.length ? (
-                  <>Siguiente <ChevronRight className="ml-2" /></>
-                ) : (
-                  <>Completar Solicitud <CheckCircle className="ml-2" /></>
-                )}
-              </Button>
+              {currentStep < steps.length ? (
+                <Button type="button" onClick={nextStep}>
+                   Siguiente <ChevronRight className="ml-2" />
+                </Button>
+              ) : (
+                <Button type="submit" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Completar Solicitud <CheckCircle className="ml-2" />
+                </Button>
+              )}
             </div>
           </CardFooter>
         </Card>
       </form>
     </div>
   );
-}
+
+    
