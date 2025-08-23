@@ -120,14 +120,14 @@ export default function ClientRequestsPage() {
 
 
   return (
-    <Card>
+    <Card className="flex flex-col">
       <CardHeader>
         <CardTitle>Mis Solicitudes</CardTitle>
         <CardDescription>
           Revisa el historial y estado de tus solicitudes de financiamiento.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 min-h-0">
         <Table>
           <TableHeader>
             <TableRow>
