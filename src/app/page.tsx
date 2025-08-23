@@ -42,6 +42,7 @@ interface Product {
     biweeklyPayment: string;
     totalPrice: string;
     currency: string;
+    status: string;
 }
 
 
@@ -54,8 +55,9 @@ export default function StorePage() {
       try {
         setLoading(true);
         const productsRef = collection(db, "products");
-        const q = query(productsRef, where("status", "==", "Publicado"));
-        const querySnapshot = await getDocs(q);
+        // Remove the 'where' clause to avoid permission issues for unauthenticated users.
+        // We will filter on the client side.
+        const querySnapshot = await getDocs(productsRef);
         
         const productsData = querySnapshot.docs
           .map((doc: QueryDocumentSnapshot<DocumentData>) => {
@@ -70,8 +72,11 @@ export default function StorePage() {
                   biweeklyPayment: data.biweeklyPayment || "0",
                   totalPrice: data.price || "0",
                   currency: data.currency || "RD$",
+                  status: data.status || "Borrador",
               };
-          });
+          })
+          // Filter for "Publicado" status on the client side.
+          .filter(product => product.status === "Publicado");
           
         setProducts(productsData);
       } catch (error) {
