@@ -7,11 +7,10 @@
  * - PublicProduct - The interface for a public product.
  * - FetchPublicProductsOutput - The return type for the fetchPublicProducts function.
  */
-
+import 'dotenv/config';
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import * as admin from 'firebase-admin';
-import 'dotenv/config'
 
 // --- Firebase Admin SDK Initialization ---
 let db: admin.firestore.Firestore | null = null;
