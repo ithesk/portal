@@ -52,10 +52,13 @@ const fetchRequestsFlow = ai.defineFlow(
         const requestsData = querySnapshot.docs.map((doc) => {
             const data = doc.data();
             
-            // Handle Firestore Timestamp conversion
-            let dateStr = data.date;
+            // Handle Firestore Timestamp conversion to a simple string
+            let dateStr = data.date; // Fallback to existing date field
             if (data.createdAt instanceof Timestamp) {
                 dateStr = format(data.createdAt.toDate(), "yyyy-MM-dd");
+            } else if (typeof data.createdAt === 'string') {
+                // Handle if it's already a string, though Timestamp is expected
+                dateStr = format(new Date(data.createdAt), "yyyy-MM-dd");
             }
             
             return {
