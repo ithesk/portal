@@ -1,78 +1,62 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Devuelve true si el usuario que hace la petición tiene el rol de "Admin" o "Gestor"
+    
+    // Función para verificar si el usuario es un Admin o Gestor
     function isInternalUser() {
-      // Obtiene el documento del usuario desde la colección 'users' usando el ID del usuario autenticado.
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      // Comprueba si el campo 'role' en el documento del usuario es "Admin" o "Gestor".
-      return userDoc.data.role in ['Admin', 'Gestor'];
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
     }
-
-    // --- REGLAS PÚBLICAS (Visitantes no autenticados) ---
-    match /products/{productId} {
-        // CUALQUIERA puede leer (get) un producto individual o listar (list) la colección
-        // si el estado del producto es "Publicado". Esto es para la página principal.
-        allow read: if resource.data.status == 'Publicado';
-    }
-
-    // --- REGLAS DE CLIENTES AUTENTICADOS ---
+    
+    // === REGLAS PARA CLIENTES ===
     match /users/{userId} {
-      // Un usuario solo puede leer, crear o actualizar SU PROPIO documento.
+      // Un usuario puede leer y actualizar su propio perfil.
       allow get, update: if request.auth.uid == userId;
-      allow create: if request.auth.uid == userId;
-      // Los usuarios internos pueden ver los perfiles de los clientes.
+      // Los usuarios internos pueden leer cualquier perfil.
       allow get: if isInternalUser();
     }
-    
-    match /requests/{requestId} {
-        // Un cliente puede leer una solicitud individual si el 'userId' del documento es el suyo.
-        allow get: if request.auth.uid == resource.data.userId;
-        
-        // **REGLA CLAVE CORREGIDA**:
-        // Un cliente puede LISTAR (hacer una consulta) la colección de solicitudes
-        // SOLAMENTE si la consulta tiene un filtro 'where' que busca su propio 'userId'.
-        // Esto evita que un cliente pueda pedir la lista completa de todas las solicitudes.
-        allow list: if request.auth.uid == request.query.filters[0].value;
 
-        // Los usuarios internos pueden leer/escribir cualquier solicitud.
-        allow read, write: if isInternalUser();
+    match /requests/{requestId} {
+      // Un cliente puede leer una solicitud individual si es suya.
+      allow get: if request.auth.uid == resource.data.userId;
+      // Un cliente puede LISTAR solicitudes SIEMPRE Y CUANDO filtre por su propio userId.
+      allow list: if request.auth.uid == request.query.filters[0].value;
+      
+      // Los usuarios internos pueden leer cualquier solicitud.
+      allow get, list: if isInternalUser();
     }
-    
+
     match /equipment/{equipmentId} {
-        // Un cliente puede leer un equipo individual si el 'userId' del documento es el suyo.
-        allow get: if request.auth.uid == resource.data.userId;
-        // Un cliente puede LISTAR los equipos que le pertenecen.
-        allow list: if request.auth.uid == request.query.filters[0].value;
-        
-        // Los usuarios internos pueden leer/escribir cualquier equipo.
-        allow read, write: if isInternalUser();
+      // Un cliente puede leer su equipo individual.
+      allow get: if request.auth.uid == resource.data.userId;
+      // Un cliente puede LISTAR sus equipos filtrando por su userId.
+      allow list: if request.auth.uid == request.query.filters[0].value;
+      
+      // Los usuarios internos pueden leer cualquier equipo.
+      allow get, list: if isInternalUser();
     }
     
     match /payments/{paymentId} {
-        // Un cliente puede leer un pago individual si el 'userId' del documento es el suyo.
-        allow get: if request.auth.uid == resource.data.userId;
-        // Un cliente puede LISTAR los pagos que le pertenecen.
-        allow list: if request.auth.uid == request.query.filters[0].value;
-
-        // Los usuarios internos pueden leer/escribir cualquier pago.
-        allow read, write: if isInternalUser();
+        // Un cliente puede leer sus pagos individuales y listarlos.
+        allow read: if request.auth.uid == resource.data.userId;
     }
 
 
-    // --- REGLAS DE ADMINISTRACIÓN (Portal Interno) ---
-    // Estas reglas dan acceso a los usuarios internos a colecciones que los clientes no tocan.
-    match /clients/{docId} {
-      allow read, write: if isInternalUser();
-    }
-
-    // Los usuarios internos también necesitan gestionar productos que no están publicados.
+    // === REGLAS PARA PÁGINA PÚBLICA ===
     match /products/{productId} {
+      // Cualquiera puede leer la lista de productos si están publicados.
+      allow list: if resource.data.status == 'Publicado';
+      // Cualquiera puede leer un producto individual si está publicado.
+      allow get: if resource.data.status == 'Publicado';
+    }
+
+
+    // === REGLAS PARA GESTORES (PORTAL INTERNO) ===
+    // Los gestores pueden escribir en cualquier lugar (crear, actualizar, borrar).
+    // Esto simplifica las reglas para el portal interno, ya que el acceso de escritura
+    // está centralizado a usuarios de confianza.
+    match /{collection}/{docId} {
         allow write: if isInternalUser();
-        // Se añade la lectura para admins para que puedan ver borradores/archivados
-        allow read: if isInternalUser() || resource.data.status == 'Publicado';
     }
   }
 }
