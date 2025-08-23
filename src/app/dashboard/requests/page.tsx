@@ -43,19 +43,14 @@ export default function ClientRequestsPage() {
 
   useEffect(() => {
     const fetchRequests = async () => {
-      console.log("Iniciando fetchRequests...");
       if (userLoading) {
-        console.log("Aún cargando el usuario...");
         return;
       }
       
       if (!user) {
-        console.log("No hay usuario autenticado. Abortando.");
         setLoading(false);
         return;
       }
-
-      console.log(`Usuario autenticado. UID: ${user.uid}`);
 
       try {
         setLoading(true);
@@ -67,16 +62,8 @@ export default function ClientRequestsPage() {
             orderBy("createdAt", "desc")
         );
         
-        console.log("Ejecutando la siguiente consulta en Firestore:", q);
-
         const querySnapshot = await getDocs(q);
         
-        console.log(`La consulta devolvió ${querySnapshot.docs.length} documentos.`);
-
-        if (querySnapshot.empty) {
-            console.log("No se encontraron solicitudes para este usuario. Es posible que los datos antiguos no tengan 'userId'. Considera ejecutar el flow de backfill.");
-        }
-
         const requestsData = querySnapshot.docs.map((doc) => {
             const data = doc.data();
             
@@ -111,7 +98,6 @@ export default function ClientRequestsPage() {
         })
       } finally {
         setLoading(false);
-        console.log("Finalizó el proceso fetchRequests.");
       }
     };
 
@@ -128,7 +114,8 @@ export default function ClientRequestsPage() {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 min-h-0">
-        <Table>
+        {/* Desktop View: Table */}
+        <Table className="hidden md:table">
           <TableHeader>
             <TableRow>
               <TableHead>Descripción</TableHead>
@@ -181,6 +168,53 @@ export default function ClientRequestsPage() {
             )}
           </TableBody>
         </Table>
+
+        {/* Mobile View: Cards */}
+        <div className="grid gap-4 md:hidden">
+            {loading ? (
+                 Array.from({ length: 4 }).map((_, index) => (
+                    <Card key={index}>
+                        <CardContent className="p-4 space-y-2">
+                             <Skeleton className="h-6 w-2/3" />
+                             <Skeleton className="h-4 w-1/2" />
+                             <Skeleton className="h-4 w-1/3" />
+                             <Skeleton className="h-6 w-1/4 mt-2" />
+                        </CardContent>
+                    </Card>
+                 ))
+            ) : requests.length > 0 ? (
+                requests.map((req) => (
+                    <Card key={req.id}>
+                        <CardContent className="p-4 flex flex-col gap-2">
+                            <div className="flex justify-between items-start">
+                                <h3 className="font-semibold">{req.type}</h3>
+                                <Badge
+                                    variant={
+                                        req.status === "Aprobado" ? "default"
+                                        : req.status === "Rechazado" ? "destructive"
+                                        : "secondary"
+                                    }
+                                    >
+                                    {req.status}
+                                </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{req.date}</p>
+                            <p className="text-sm font-medium">
+                                Monto: RD$ {req.financingAmount?.toFixed(2) ?? 'N/A'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                ))
+            ) : (
+                 <Alert className="border-none">
+                    <FileText className="h-4 w-4" />
+                    <AlertTitle>No hay solicitudes</AlertTitle>
+                    <AlertDescription>
+                        No has realizado ninguna solicitud de financiamiento aún.
+                    </AlertDescription>
+                </Alert>
+            )}
+        </div>
       </CardContent>
     </Card>
   );
