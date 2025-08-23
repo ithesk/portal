@@ -12,23 +12,41 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import * as admin from 'firebase-admin';
 
-// Firebase Admin SDK Initialization
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    : undefined;
+// --- Firebase Admin SDK Initialization ---
 
+// Check if the app is already initialized to prevent errors
 if (!admin.apps.length) {
   try {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount!),
-    });
-    console.log("DEBUG: Firebase Admin SDK inicializado.");
+    // Safely parse the service account key from environment variables
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
+      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+      : undefined;
+
+    // Initialize the app only if service account is available
+    if (serviceAccount) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      console.log("DEBUG: Firebase Admin SDK inicializado.");
+    } else {
+      console.error("DEBUG: FIREBASE_SERVICE_ACCOUNT no está definido. No se puede inicializar el Admin SDK.");
+    }
   } catch (e: any) {
     console.error('DEBUG: Error al inicializar Firebase Admin SDK:', e.message);
   }
 }
 
-const db = admin.firestore();
+// Function to get the Firestore instance, ensuring the app is initialized first.
+function getDb() {
+  if (!admin.apps.length) {
+    console.error("DEBUG: Firebase Admin no está inicializado al intentar obtener la instancia de DB.");
+    // Return a dummy object or throw an error to avoid crashing, but indicate a problem
+    throw new Error("Firebase Admin SDK not initialized");
+  }
+  return admin.firestore();
+}
+
+// --- Schema Definitions ---
 
 const PublicProductSchema = z.object({
     id: z.string(),
@@ -48,9 +66,13 @@ export type PublicProduct = z.infer<typeof PublicProductSchema>;
 const FetchPublicProductsOutputSchema = z.array(PublicProductSchema);
 export type FetchPublicProductsOutput = z.infer<typeof FetchPublicProductsOutputSchema>;
 
+// --- Exported Function ---
+
 export async function fetchPublicProducts(): Promise<FetchPublicProductsOutput> {
   return fetchPublicProductsFlow();
 }
+
+// --- Genkit Flow Definition ---
 
 const fetchPublicProductsFlow = ai.defineFlow(
   {
@@ -61,6 +83,7 @@ const fetchPublicProductsFlow = ai.defineFlow(
   async () => {
     console.log("DEBUG: Iniciando fetchPublicProductsFlow con Admin SDK.");
     try {
+        const db = getDb(); // Get DB instance inside the flow
         const productsRef = db.collection("products");
         const q = productsRef.where("status", "==", "Publicado");
         const querySnapshot = await q.get();
