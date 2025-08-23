@@ -179,9 +179,11 @@ export default function DashboardLayout({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>Perfil</span>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/profile">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Perfil</span>
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <LifeBuoy className="mr-2 h-4 w-4" />

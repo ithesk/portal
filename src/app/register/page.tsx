@@ -44,6 +44,8 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [cedula, setCedula] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -60,6 +62,8 @@ export default function RegisterPage() {
       const userData = {
         name: name,
         email: email,
+        cedula: cedula,
+        phone: phone,
         role: "Cliente", 
         createdAt: new Date().toISOString(),
       };
@@ -103,6 +107,27 @@ export default function RegisterPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
+            </div>
+             <div className="grid gap-2">
+                <Label htmlFor="cedula">Cédula de Identidad</Label>
+                <Input 
+                    id="cedula" 
+                    placeholder="000-0000000-0" 
+                    required 
+                    value={cedula}
+                    onChange={(e) => setCedula(e.target.value)}
+                />
+            </div>
+             <div className="grid gap-2">
+                <Label htmlFor="phone">Número de Teléfono</Label>
+                <Input 
+                    id="phone" 
+                    type="tel"
+                    placeholder="809-555-1234" 
+                    required 
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Correo Electrónico</Label>
