@@ -13,9 +13,13 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { collection, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, getDocs, query, where, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { useAuthState } from "react-firebase-hooks/auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Wrench } from "lucide-react";
+
 
 interface Equipment {
   id: string;
@@ -30,12 +34,19 @@ interface Equipment {
 export default function EquipmentPage() {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user] = useAuthState(auth);
 
   useEffect(() => {
     const fetchEquipment = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      };
+
       try {
         setLoading(true);
-        const querySnapshot = await getDocs(collection(db, "equipment"));
+        const q = query(collection(db, "equipment"), where("userId", "==", user.uid));
+        const querySnapshot = await getDocs(q);
         const equipmentData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
           id: doc.id,
           ...doc.data(),
@@ -49,7 +60,7 @@ export default function EquipmentPage() {
     };
 
     fetchEquipment();
-  }, []);
+  }, [user]);
 
   return (
     <div>
@@ -79,7 +90,7 @@ export default function EquipmentPage() {
               </CardFooter>
             </Card>
           ))
-        ) : (
+        ) : equipment.length > 0 ? (
           equipment.map((item) => (
             <Card key={item.id}>
               <CardHeader className="p-0">
@@ -113,6 +124,16 @@ export default function EquipmentPage() {
               </CardFooter>
             </Card>
           ))
+        ) : (
+            <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
+                <Alert>
+                    <Wrench className="h-4 w-4" />
+                    <AlertTitle>No hay equipos</AlertTitle>
+                    <AlertDescription>
+                        No tienes equipos financiados en este momento.
+                    </AlertDescription>
+                </Alert>
+            </div>
         )}
       </div>
     </div>

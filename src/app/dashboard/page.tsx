@@ -1,3 +1,6 @@
+
+"use client";
+
 import {
   Card,
   CardContent,
@@ -23,44 +26,44 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Saldo Actual</CardDescription>
-            <CardTitle className="text-4xl">$5,231.89</CardTitle>
+            <CardTitle className="text-4xl">$0.00</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
-              +10% desde el mes pasado
+              -
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Próximo Pago</CardDescription>
-            <CardTitle className="text-4xl">$250.00</CardTitle>
+            <CardTitle className="text-4xl">$0.00</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
-              Vence el 30 de Julio, 2024
+              -
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Equipo Financiado</CardDescription>
-            <CardTitle className="text-4xl">3</CardTitle>
+            <CardTitle className="text-4xl">0</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
-              2 activos, 1 pagado
+              -
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Último Pago</CardDescription>
-            <CardTitle className="text-4xl">$250.00</CardTitle>
+            <CardTitle className="text-4xl">$0.00</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
-              Recibido el 30 de Junio, 2024
+              -
             </div>
           </CardContent>
         </Card>
@@ -90,64 +93,9 @@ export default function Dashboard() {
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell>
-                    <div className="font-medium">Pago Mensual</div>
-                    <div className="hidden text-sm text-muted-foreground md:inline">
-                      Excavadora CAT 320D
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <CreditCard className="h-5 w-5 text-muted-foreground" />
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Badge className="text-xs" variant="outline">
-                      Completado
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    2024-06-30
-                  </TableCell>
-                  <TableCell className="text-right">$250.00</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>
-                    <div className="font-medium">Próximo Pago Programado</div>
-                    <div className="hidden text-sm text-muted-foreground md:inline">
-                      Excavadora CAT 320D
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Calendar className="h-5 w-5 text-muted-foreground" />
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Badge className="text-xs" variant="secondary">
-                      Pendiente
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    2024-07-30
-                  </TableCell>
-                  <TableCell className="text-right">$250.00</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>
-                    <div className="font-medium">Pago Mensual</div>
-                    <div className="hidden text-sm text-muted-foreground md:inline">
-                      Compactadora Wacker
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <CreditCard className="h-5 w-5 text-muted-foreground" />
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Badge className="text-xs" variant="outline">
-                      Completado
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    2024-06-25
-                  </TableCell>
-                  <TableCell className="text-right">$150.00</TableCell>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-10">
+                        No hay actividad reciente.
+                    </TableCell>
                 </TableRow>
               </TableBody>
             </Table>

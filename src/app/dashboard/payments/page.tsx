@@ -18,8 +18,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { collection, getDocs, query, orderBy, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, getDocs, query, where, orderBy, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { useAuthState } from "react-firebase-hooks/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Payment {
@@ -34,13 +35,18 @@ interface Payment {
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user] = useAuthState(auth);
 
   useEffect(() => {
     const fetchPayments = async () => {
+      if (!user) {
+          setLoading(false);
+          return;
+      }
       try {
         setLoading(true);
         const paymentsRef = collection(db, "payments");
-        const q = query(paymentsRef, orderBy("date", "desc"));
+        const q = query(paymentsRef, where("userId", "==", user.uid), orderBy("date", "desc"));
         const querySnapshot = await getDocs(q);
         const paymentsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
           id: doc.id,
@@ -55,7 +61,7 @@ export default function PaymentsPage() {
     };
 
     fetchPayments();
-  }, []);
+  }, [user]);
 
   return (
     <Card>
@@ -93,7 +99,7 @@ export default function PaymentsPage() {
                   <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
                 </TableRow>
               ))
-            ) : (
+            ) : payments.length > 0 ? (
               payments.map((payment) => (
                 <TableRow key={payment.id}>
                   <TableCell className="hidden sm:table-cell font-medium">
@@ -116,6 +122,12 @@ export default function PaymentsPage() {
                   <TableCell className="text-right">{payment.amount}</TableCell>
                 </TableRow>
               ))
+            ) : (
+                <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-10">
+                        No tienes pagos registrados.
+                    </TableCell>
+                </TableRow>
             )}
           </TableBody>
         </Table>
