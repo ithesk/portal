@@ -35,19 +35,27 @@ export default function ClientRequestsPage() {
 
   useEffect(() => {
     const fetchRequests = async () => {
-      if (userLoading || !user) {
+      console.log("Paso 1: Iniciando fetchRequests. User loading:", userLoading);
+      if (userLoading) return;
+
+      console.log("Paso 2: userLoading ha terminado. User object:", user);
+      if (!user) {
         if (!userLoading) setLoading(false);
+        console.log("Paso 2a: No hay usuario, saliendo.");
         return;
       }
 
       try {
         setLoading(true);
-        // Call the secure Genkit flow with the user's ID
+        console.log("Paso 3: Llamando al flow 'fetchRequestsForUser' con userId:", user.uid);
+        
         const requestsData = await fetchRequestsForUser({ userId: user.uid });
+        
+        console.log("Paso 4: Flow ejecutado. Datos recibidos:", requestsData);
         setRequests(requestsData);
 
       } catch (error) {
-        console.error("Error fetching requests: ", error);
+        console.error("Paso 5: ERROR en fetchRequests. El error es:", error);
         toast({
             variant: "destructive",
             title: "Error al cargar solicitudes",
@@ -55,6 +63,7 @@ export default function ClientRequestsPage() {
         })
       } finally {
         setLoading(false);
+        console.log("Paso 6: fetchRequests finalizado.");
       }
     };
 
