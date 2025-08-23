@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "lucide-react";
 
@@ -52,6 +52,14 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!cedula) {
+        toast({
+            variant: "destructive",
+            title: "Cédula requerida",
+            description: "Por favor, ingresa tu número de cédula.",
+        });
+        return;
+    }
     setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -59,6 +67,8 @@ export default function RegisterPage() {
       
       await updateProfile(user, { displayName: name });
       
+      const batch = writeBatch(db);
+
       const userData = {
         name: name,
         email: email,
@@ -68,7 +78,25 @@ export default function RegisterPage() {
         createdAt: new Date().toISOString(),
       };
       
-      await setDoc(doc(db, "users", user.uid), userData);
+      const userDocRef = doc(db, "users", user.uid);
+      batch.set(userDocRef, userData);
+
+      // Search for unlinked equipment with the same cedula
+      const equipmentQuery = query(collection(db, "equipment"), where("cedula", "==", cedula), where("userId", "==", null));
+      const equipmentSnapshot = await getDocs(equipmentQuery);
+
+      if (!equipmentSnapshot.empty) {
+          equipmentSnapshot.forEach(doc => {
+              const equipmentDocRef = doc.ref;
+              batch.update(equipmentDocRef, { userId: user.uid, client: name });
+          });
+          toast({
+              title: "¡Equipo vinculado!",
+              description: "Hemos encontrado y vinculado tu equipo financiado a tu nueva cuenta.",
+          });
+      }
+      
+      await batch.commit();
       
       router.push('/dashboard');
       

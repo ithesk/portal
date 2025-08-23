@@ -34,10 +34,12 @@ interface Equipment {
 export default function EquipmentPage() {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user] = useAuthState(auth);
+  const [user, userLoading] = useAuthState(auth);
 
   useEffect(() => {
     const fetchEquipment = async () => {
+      if (userLoading) return;
+
       if (!user) {
         setLoading(false);
         return;
@@ -60,7 +62,7 @@ export default function EquipmentPage() {
     };
 
     fetchEquipment();
-  }, [user]);
+  }, [user, userLoading]);
 
   return (
     <div>

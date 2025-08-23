@@ -84,25 +84,32 @@ export default function RequestsPage() {
       const batch = writeBatch(db);
       const requestDocRef = doc(db, "requests", request.id);
 
-      // If approved, first check if user exists and then create the equipment record
+      // If approved, create the equipment record
       if (status === "Aprobado") {
-        // 1. Find user by cedula
+        // 1. Find user by cedula to get their ID, if they exist
         const usersRef = collection(db, "users");
         const userQuery = query(usersRef, where("cedula", "==", request.cedula));
         const userSnapshot = await getDocs(userQuery);
 
-        if (userSnapshot.empty) {
-          throw new Error(`No se encontró un usuario con la cédula ${request.cedula}. El cliente debe registrarse primero para poder aprobar la solicitud.`);
+        let userId = null;
+        let userName = request.client; // Use name from request as fallback
+
+        if (!userSnapshot.empty) {
+          const userDoc = userSnapshot.docs[0];
+          userId = userDoc.id;
+          userName = userDoc.data().name;
+        } else {
+            toast({
+                title: "Cliente no registrado",
+                description: "Se creará el equipo sin vincular. Se asociará cuando el cliente se registre.",
+            });
         }
         
-        const userDoc = userSnapshot.docs[0];
-        const userId = userDoc.id;
-        const userName = userDoc.data().name;
-
         // 2. Create new equipment document
         const newEquipmentRef = doc(collection(db, "equipment"));
         const equipmentData = {
-            userId: userId,
+            userId: userId, // This can be null if user doesn't exist yet
+            cedula: request.cedula, // Store cedula for future linking
             name: request.itemType === 'phone' ? 'Teléfono' : 'Tablet',
             status: "Financiado",
             progress: 0,
