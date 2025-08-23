@@ -112,7 +112,7 @@ export default function RequestsPage() {
          toast({
             variant: "destructive",
             title: "Acción Requerida",
-            description: "Esta solicitud no tiene un ID de usuario. El cliente debe crear una cuenta para poder aprobarla.",
+            description: "Esta solicitud no tiene un ID de usuario. El cliente debe crear una cuenta O debes correr el flow de 'backfill' para poder aprobarla.",
         });
         setUpdatingId(null);
         return;

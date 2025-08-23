@@ -43,19 +43,19 @@ export default function ClientRequestsPage() {
 
   useEffect(() => {
     const fetchRequests = async () => {
-      console.log("DEBUG: Iniciando fetchRequests...");
+      console.log("Iniciando fetchRequests...");
       if (userLoading) {
-        console.log("DEBUG: Aún cargando el usuario...");
+        console.log("Aún cargando el usuario...");
         return;
       }
       
       if (!user) {
-        console.log("DEBUG: No hay usuario autenticado. Abortando.");
+        console.log("No hay usuario autenticado. Abortando.");
         setLoading(false);
         return;
       }
 
-      console.log(`DEBUG: Usuario autenticado. UID: ${user.uid}`);
+      console.log(`Usuario autenticado. UID: ${user.uid}`);
 
       try {
         setLoading(true);
@@ -67,11 +67,15 @@ export default function ClientRequestsPage() {
             orderBy("createdAt", "desc")
         );
         
-        console.log("DEBUG: Ejecutando la siguiente consulta en Firestore:", q);
+        console.log("Ejecutando la siguiente consulta en Firestore:", q);
 
         const querySnapshot = await getDocs(q);
         
-        console.log(`DEBUG: La consulta devolvió ${querySnapshot.docs.length} documentos.`);
+        console.log(`La consulta devolvió ${querySnapshot.docs.length} documentos.`);
+
+        if (querySnapshot.empty) {
+            console.log("No se encontraron solicitudes para este usuario. Es posible que los datos antiguos no tengan 'userId'. Considera ejecutar el flow de backfill.");
+        }
 
         const requestsData = querySnapshot.docs.map((doc) => {
             const data = doc.data();
@@ -99,15 +103,15 @@ export default function ClientRequestsPage() {
         setRequests(requestsData);
 
       } catch (error: any) {
-        console.error("DEBUG: CRITICAL - Error al obtener solicitudes directamente desde el cliente:", error);
+        console.error("CRITICAL - Error al obtener solicitudes directamente desde el cliente:", error);
         toast({
             variant: "destructive",
             title: "Error al Cargar Solicitudes",
-            description: `Hubo un problema de permisos. Detalles: ${error.message}`,
+            description: `Hubo un problema de permisos o de consulta. Detalles: ${error.message}`,
         })
       } finally {
         setLoading(false);
-        console.log("DEBUG: Finalizó el proceso fetchRequests.");
+        console.log("Finalizó el proceso fetchRequests.");
       }
     };
 
