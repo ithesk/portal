@@ -1,36 +1,18 @@
+
 rules_version = '2';
 
 service cloud.firestore {
-  // Apply rules to the 'alzadatos' database
   match /databases/alzadatos/documents {
-  
-    // Products can be read by anyone, but only modified by authenticated users (for now)
-    // This allows the public storefront to work without requiring login.
-    match /products/{productId} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
     
-    // User data can only be read/written by the user themselves or admins
-    match /users/{userId} {
-       allow read, write: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+    // Allow public read-only and list access to the products collection
+    match /products/{productId} {
+      allow get, list: if true;
+      allow write: if request.auth != null; // Example: only logged-in users can write
     }
 
-    // Equipment data can be read/written by the assigned user or admins
-    match /equipment/{equipmentId} {
-        allow read, write: if request.auth.uid == resource.data.userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
-    }
-
-    // Requests can be created by anyone, but only read/updated by admins or the user it belongs to
-     match /requests/{requestId} {
-      allow create: if true;
-      allow read, update, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
-      // allow read: if resource.data.cedula == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.cedula; // For client access
-    }
-
-    // Payments can be read by the user who made them or by admins.
-    match /payments/{paymentId} {
-        allow read, write: if request.auth.uid == resource.data.userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+    // Secure all other collections by default
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
