@@ -8,9 +8,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { fetchPublicProducts, PublicProduct } from "@/ai/flows/fetch-public-products-flow";
 
 
 const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -32,52 +31,16 @@ const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-interface Product {
-    id: string;
-    name: string;
-    popular: boolean;
-    imageUrl: string;
-    aiHint: string;
-    initialPayment: string;
-    biweeklyPayment: string;
-    totalPrice: string;
-    currency: string;
-    status: string;
-}
-
 
 export default function StorePage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<PublicProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const getProducts = async () => {
       try {
         setLoading(true);
-        const productsRef = collection(db, "products");
-        // Remove the 'where' clause to avoid permission issues for unauthenticated users.
-        // We will filter on the client side.
-        const querySnapshot = await getDocs(productsRef);
-        
-        const productsData = querySnapshot.docs
-          .map((doc: QueryDocumentSnapshot<DocumentData>) => {
-              const data = doc.data();
-              return {
-                  id: doc.id,
-                  name: data.name || "",
-                  popular: data.popular || false,
-                  imageUrl: data.imageUrl || "https://placehold.co/400x400.png",
-                  aiHint: data.aiHint || "product image",
-                  initialPayment: data.initialPayment || "0",
-                  biweeklyPayment: data.biweeklyPayment || "0",
-                  totalPrice: data.price || "0",
-                  currency: data.currency || "RD$",
-                  status: data.status || "Borrador",
-              };
-          })
-          // Filter for "Publicado" status on the client side.
-          .filter(product => product.status === "Publicado");
-          
+        const productsData = await fetchPublicProducts();
         setProducts(productsData);
       } catch (error) {
         console.error("Error fetching products: ", error);
@@ -86,7 +49,7 @@ export default function StorePage() {
       }
     };
 
-    fetchProducts();
+    getProducts();
   }, []);
 
   return (
