@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -137,33 +138,49 @@ export default function InternalLayout({
                 </TooltipProvider>
               </nav>
               <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
-                  <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="overflow-hidden rounded-full"
-                    >
-                      <Avatar>
-                        <AvatarImage src="https://placehold.co/32x32.png" alt="@gestor" data-ai-hint="person portrait" />
-                        <AvatarFallback>G</AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="right">
-                    <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Perfil</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => auth.signOut()}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Cerrar Sesión</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  <Dialog>
+                    <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="overflow-hidden rounded-full"
+                      >
+                        <Avatar>
+                          <AvatarImage src="https://placehold.co/32x32.png" alt="@gestor" data-ai-hint="person portrait" />
+                          <AvatarFallback>G</AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="right">
+                      <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                        <DialogTrigger asChild>
+                           <DropdownMenuItem>
+                            <User className="mr-2 h-4 w-4" />
+                            <span>Perfil</span>
+                          </DropdownMenuItem>
+                        </DialogTrigger>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => auth.signOut()}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Cerrar Sesión</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                   <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Perfil de Usuario</DialogTitle>
+                        <DialogDescription>
+                          Información de la cuenta de {user.email}.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="py-4">
+                        <p><strong>Nombre:</strong> {user.displayName || "No disponible"}</p>
+                        <p><strong>Email:</strong> {user.email}</p>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
               </nav>
             </aside>
 
