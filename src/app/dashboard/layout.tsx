@@ -15,6 +15,7 @@ import {
   Wrench,
   LifeBuoy,
   Loader,
+  FileText,
 } from "lucide-react";
 
 import {
@@ -73,8 +74,9 @@ export default function DashboardLayout({
 
   const navItems = [
     { href: "/dashboard", icon: Home, label: "Resumen" },
-    { href: "/dashboard/payments", icon: DollarSign, label: "Pagos" },
+    { href: "/dashboard/requests", icon: FileText, label: "Mis Solicitudes" },
     { href: "/dashboard/equipment", icon: Wrench, label: "Equipo" },
+    { href: "/dashboard/payments", icon: DollarSign, label: "Pagos" },
     { href: "/dashboard/support", icon: LifeBuoy, label: "Soporte" },
   ];
   
