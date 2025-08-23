@@ -120,7 +120,7 @@ export default function ClientRequestsPage() {
 
 
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col h-full">
       <CardHeader>
         <CardTitle>Mis Solicitudes</CardTitle>
         <CardDescription>
