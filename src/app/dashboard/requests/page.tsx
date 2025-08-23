@@ -58,9 +58,24 @@ export default function ClientRequestsPage() {
 
         if (userDocSnapshot.empty) {
             setLoading(false);
+            toast({
+                variant: "destructive",
+                title: "Perfil no encontrado",
+                description: "No pudimos encontrar tu perfil de usuario.",
+            });
             return;
         }
         const cedula = userDocSnapshot.docs[0].data().cedula;
+
+        if (!cedula) {
+            setLoading(false);
+            toast({
+                variant: "destructive",
+                title: "Cédula no encontrada",
+                description: "No se encontró tu número de cédula en tu perfil, no podemos cargar tus solicitudes.",
+            });
+            return;
+        }
 
         // Then, call the secure Genkit flow to get requests
         const requestsData = await fetchRequestsForCedula({ cedula });
