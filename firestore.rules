@@ -1,33 +1,42 @@
-
 rules_version = '2';
+
 service cloud.firestore {
-  match /databases/{database}/documents {
-    // Permite que cualquiera (autenticado o no) lea la lista de productos
+  match /databases/alzadatos/documents {
+    // Regla para hacer pública la colección de productos
     match /products/{productId} {
       allow read: if true;
       allow write: if request.auth != null; // Solo usuarios autenticados pueden escribir
     }
 
-    // Los usuarios autenticados pueden leer y escribir sus propios datos
+    // Regla para que los usuarios solo puedan acceder a su propia información
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Los usuarios autenticados pueden leer y escribir en su propio equipo
-    match /equipment/{equipmentId} {
-       allow read, write: if request.auth != null;
+      // Los administradores también pueden leer datos de usuario para la gestión
+      allow read: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
     }
 
-    // Permite a los usuarios autenticados leer sus propios pagos
-    match /payments/{paymentId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null;
-    }
-    
-    // Las solicitudes solo pueden ser leídas/creadas por usuarios autenticados
+    // Regla para las solicitudes
     match /requests/{requestId} {
-        allow read, create: if request.auth != null;
-        allow update: if request.auth != null; // Permitir que los gestores actualicen
+      // Los usuarios pueden leer sus propias solicitudes basadas en la cédula
+      allow read: if request.auth != null && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.cedula == resource.data.cedula || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor']);
+      // Solo el personal interno puede escribir/actualizar solicitudes
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
+    }
+
+    // Regla para los equipos
+    match /equipment/{equipmentId} {
+      // Los usuarios pueden leer el equipo que les pertenece
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor']);
+       // Solo el personal interno puede crear/actualizar equipos
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
+    }
+
+    // Regla para los pagos
+    match /payments/{paymentId} {
+      // Los usuarios pueden leer sus propios pagos
+       allow read: if request.auth != null && (resource.data.userId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor']);
+       // Solo el personal interno puede registrar pagos
+       allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
     }
   }
 }
