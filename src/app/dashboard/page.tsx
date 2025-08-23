@@ -23,8 +23,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from 'date-fns';
-import { PaymentSchedule } from "@/components/shared/payment-schedule";
+import { format, parseISO } from 'date-fns';
+import { PaymentSchedule, ScheduleInfo } from "@/components/shared/payment-schedule";
 
 
 interface Activity {
@@ -43,6 +43,8 @@ export default function Dashboard() {
   const [equipmentCount, setEquipmentCount] = useState(0);
   const [lastPayment, setLastPayment] = useState<string | null>(null);
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+  const [scheduleInfo, setScheduleInfo] = useState<ScheduleInfo | null>(null);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,12 +74,13 @@ export default function Dashboard() {
         const requestsSnapshot = await getDocs(requestsQuery);
         const requestsData: Activity[] = requestsSnapshot.docs.map(doc => {
             const data = doc.data();
+            const dateValue = data.createdAt?.toDate ? data.createdAt.toDate() : parseISO(data.createdAt);
             return {
                 id: doc.id,
                 description: data.type || "Solicitud de Financiamiento",
                 type: "Solicitud",
                 status: data.status,
-                date: format(data.createdAt.toDate(), 'yyyy-MM-dd'),
+                date: format(dateValue, 'yyyy-MM-dd'),
                 amount: data.financingAmount ? `RD$ ${data.financingAmount.toFixed(2)}` : null,
             };
         });
@@ -124,22 +127,32 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Saldo Actual</CardDescription>
-            <CardTitle className="text-4xl">RD$ 0.00</CardTitle>
+            {scheduleInfo === null ? (
+                <Skeleton className="h-10 w-3/4" />
+            ) : (
+                <CardTitle className="text-4xl">RD$ {scheduleInfo.totalBalance.toFixed(2)}</CardTitle>
+            )}
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
-              -
+                Total pendiente de pago
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Próximo Pago</CardDescription>
-            <CardTitle className="text-4xl">RD$ 0.00</CardTitle>
+            {scheduleInfo === null ? (
+                <Skeleton className="h-10 w-3/4" />
+            ) : (
+                <CardTitle className="text-4xl">
+                    {scheduleInfo.nextPaymentAmount > 0 ? `RD$ ${scheduleInfo.nextPaymentAmount.toFixed(2)}` : 'N/A'}
+                </CardTitle>
+            )}
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
-              -
+              {scheduleInfo?.nextPaymentDate ? `Vence el ${scheduleInfo.nextPaymentDate}` : '-'}
             </div>
           </CardContent>
         </Card>
@@ -221,7 +234,7 @@ export default function Dashboard() {
             </Table>
           </CardContent>
         </Card>
-        {user && <PaymentSchedule userId={user.uid} />}
+        {user && <PaymentSchedule userId={user.uid} onScheduleCalculated={setScheduleInfo} />}
       </div>
     </div>
   );
@@ -307,3 +320,5 @@ function DashboardSkeleton() {
         </div>
     );
 }
+
+    

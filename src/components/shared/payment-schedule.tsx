@@ -13,8 +13,14 @@ import { toZonedTime } from 'date-fns-tz';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { CalendarClock } from 'lucide-react';
 
+export interface ScheduleInfo {
+    totalBalance: number;
+    nextPaymentAmount: number;
+    nextPaymentDate: string | null;
+}
 interface PaymentScheduleProps {
     userId: string;
+    onScheduleCalculated: (info: ScheduleInfo) => void;
 }
 
 interface ScheduleItem {
@@ -25,7 +31,7 @@ interface ScheduleItem {
     equipmentName: string;
 }
 
-export function PaymentSchedule({ userId }: PaymentScheduleProps) {
+export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentScheduleProps) {
     const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -48,6 +54,7 @@ export function PaymentSchedule({ userId }: PaymentScheduleProps) {
 
                 if (requestsSnapshot.empty) {
                     setSchedule([]);
+                    onScheduleCalculated({ totalBalance: 0, nextPaymentAmount: 0, nextPaymentDate: null });
                     setLoading(false);
                     return;
                 }
@@ -58,11 +65,14 @@ export function PaymentSchedule({ userId }: PaymentScheduleProps) {
                 const paymentsMade = paymentsSnapshot.docs.map(doc => doc.data());
                 
                 let allUpcomingPayments: ScheduleItem[] = [];
+                let totalFinanced = 0;
 
                 for (const requestDoc of requestsSnapshot.docs) {
                     const request = requestDoc.data();
                     const requestId = requestDoc.id;
-                    const equipmentName = request.itemType === 'phone' ? 'Teléfono' : 'Tablet'; // Adjust as needed
+                    totalFinanced += request.financingAmount || 0;
+                    
+                    const equipmentName = request.itemType === 'phone' ? 'Teléfono' : 'Tablet'; 
                     
                     const paymentsForThisRequest = paymentsMade.filter(p => p.requestId === requestId).length;
                     
@@ -86,19 +96,35 @@ export function PaymentSchedule({ userId }: PaymentScheduleProps) {
                     }
                 }
 
+                // Calculate total balance
+                const totalPaid = paymentsMade.reduce((acc, p) => acc + (p.amount || 0), 0);
+                const initialPaymentsTotal = requestsSnapshot.docs.reduce((acc, doc) => acc + (doc.data().initialPayment || 0), 0);
+                const totalDebt = requestsSnapshot.docs.reduce((acc, doc) => acc + (doc.data().totalPaid || 0), 0);
+                const currentBalance = totalDebt - initialPaymentsTotal - totalPaid;
+
+
                 // Sort all payments by date and take the next 10 for display
                 allUpcomingPayments.sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
                 setSchedule(allUpcomingPayments.slice(0, 10));
 
+                const nextPayment = allUpcomingPayments[0];
+                onScheduleCalculated({
+                    totalBalance: currentBalance > 0 ? currentBalance : 0,
+                    nextPaymentAmount: nextPayment?.amount || 0,
+                    nextPaymentDate: nextPayment?.paymentDate || null,
+                });
+
+
             } catch (error) {
                 console.error("Error calculating payment schedule: ", error);
+                 onScheduleCalculated({ totalBalance: 0, nextPaymentAmount: 0, nextPaymentDate: null });
             } finally {
                 setLoading(false);
             }
         };
 
         calculateSchedule();
-    }, [userId]);
+    }, [userId, onScheduleCalculated]);
 
     return (
         <Card>
@@ -161,3 +187,5 @@ export function PaymentSchedule({ userId }: PaymentScheduleProps) {
         </Card>
     );
 }
+
+    
