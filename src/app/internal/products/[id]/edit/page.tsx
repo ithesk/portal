@@ -32,9 +32,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
 
-export default function EditProductPage() {
+export default function EditProductPage({ params }: { params: { id: string } }) {
     const router = useRouter();
-    const params = useParams();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
@@ -42,7 +41,7 @@ export default function EditProductPage() {
     const [product, setProduct] = useState<any>(null);
     const imageUrlInputRef = useRef<HTMLInputElement>(null);
 
-    const productId = params.id as string;
+    const { id: productId } = params;
 
     useEffect(() => {
         if (!productId) return;
@@ -50,7 +49,7 @@ export default function EditProductPage() {
         const fetchProduct = async () => {
             try {
                 setFetching(true);
-                const productRef = doc(db, "products", productId);
+                const productRef = doc(db, "products", productId as string);
                 const productSnap = await getDoc(productRef);
 
                 if (productSnap.exists()) {
@@ -113,7 +112,7 @@ export default function EditProductPage() {
         }
 
         try {
-            const productRef = doc(db, "products", productId);
+            const productRef = doc(db, "products", productId as string);
             await updateDoc(productRef, {
                 ...product,
                 price: parseFloat(product.price),
