@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { CopyButton } from "../ui/copy-button";
 import { Banknote, Landmark } from "lucide-react";
+import { Label } from "../ui/label";
+import { Input } from "../ui/input";
 
 interface PaymentInstructionsDialogProps {
     children: React.ReactNode;
