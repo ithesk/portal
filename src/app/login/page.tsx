@@ -104,6 +104,12 @@ export default function LoginPage() {
               {loading ? <Loader className="animate-spin" /> : 'Iniciar Sesión'}
             </Button>
              <div className="mt-4 text-center text-sm">
+                No tienes una cuenta?{" "}
+                <Link href="/register" className="underline">
+                  Crear Cuenta
+                </Link>
+            </div>
+            <div className="mt-1 text-center text-sm">
                 <Link href="/internal/login" className="underline">
                   Ir al portal interno
                 </Link>
