@@ -24,6 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from 'date-fns';
+import { PaymentSchedule } from "@/components/shared/payment-schedule";
 
 
 interface Activity {
@@ -165,7 +166,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-      <div>
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="px-7">
             <CardTitle>Actividad Reciente</CardTitle>
@@ -220,6 +221,7 @@ export default function Dashboard() {
             </Table>
           </CardContent>
         </Card>
+        {user && <PaymentSchedule userId={user.uid} />}
       </div>
     </div>
   );
@@ -242,7 +244,7 @@ function DashboardSkeleton() {
                     </Card>
                 ))}
             </div>
-            <div>
+            <div className="grid gap-4 md:grid-cols-2">
                 <Card>
                     <CardHeader className="px-7">
                         <Skeleton className="h-7 w-48" />
@@ -267,6 +269,34 @@ function DashboardSkeleton() {
                                         <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-full" /></TableCell>
                                         <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-full" /></TableCell>
                                         <TableCell className="text-right"><Skeleton className="h-5 w-full" /></TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="px-7">
+                        <Skeleton className="h-7 w-48" />
+                        <Skeleton className="h-4 w-64" />
+                    </CardHeader>
+                    <CardContent>
+                         <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead><Skeleton className="h-5 w-12" /></TableHead>
+                                    <TableHead><Skeleton className="h-5 w-24" /></TableHead>
+                                    <TableHead><Skeleton className="h-5 w-24" /></TableHead>
+                                    <TableHead className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {Array.from({ length: 3 }).map((_, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
