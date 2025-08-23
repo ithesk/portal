@@ -7,40 +7,12 @@
  * - FetchRequestsInput - The input type for the fetchRequestsForUser function.
  * - FetchRequestsOutput - The return type for the fetchRequestsForUser function.
  */
-import 'dotenv/config';
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 import { format, parseISO } from "date-fns";
-import * as admin from 'firebase-admin';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
-// --- Firebase Admin Initialization ---
-function initializeFirebase() {
-    if (!admin.apps.length) {
-        try {
-            console.log("DEBUG: No Firebase Admin app initialized. Initializing...");
-            const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
-            if (!serviceAccountString) {
-                console.error("DEBUG: FIREBASE_SERVICE_ACCOUNT env var is not defined.");
-                throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable not set.");
-            }
-            const serviceAccount = JSON.parse(serviceAccountString);
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-                databaseName: 'alzadatos',
-            });
-             console.log("DEBUG: Firebase Admin SDK Initialized Successfully.");
-        } catch (error: any) {
-            console.error("DEBUG: Critical error initializing Firebase Admin SDK:", error.message);
-            throw error; // Re-throw the error to fail fast
-        }
-    } else {
-        console.log("DEBUG: Firebase Admin app already initialized.");
-    }
-}
-
-initializeFirebase();
-
-const db = admin.firestore();
 
 // --- Schema Definitions ---
 const FetchRequestsInputSchema = z.object({
@@ -73,12 +45,13 @@ const fetchRequestsFlow = ai.defineFlow(
   },
   async ({ userId }) => {
     try {
-        console.log(`DEBUG: fetchRequestsFlow started for userId: ${userId}`);
-        // 1. Securely fetch user document on the server to get their cedula
-        const userDocRef = db.collection('users').doc(userId);
-        const userDocSnap = await userDocRef.get();
+        console.log(`DEBUG: fetchRequestsFlow started for userId: ${userId} using CLIENT SDK`);
+        
+        // 1. Fetch user document on the server to get their cedula
+        const userDocRef = doc(db, 'users', userId);
+        const userDocSnap = await getDoc(userDocRef);
 
-        if (!userDocSnap.exists) {
+        if (!userDocSnap.exists()) {
             console.error(`DEBUG: User with ID ${userId} not found.`);
             return [];
         }
@@ -91,9 +64,10 @@ const fetchRequestsFlow = ai.defineFlow(
         console.log(`DEBUG: Found cedula ${cedula} for user ${userId}.`);
 
         // 2. Fetch requests using the obtained cedula
-        const requestsRef = db.collection("requests");
-        const q = requestsRef.where("cedula", "==", cedula).orderBy("createdAt", "desc");
-        const querySnapshot = await q.get();
+        const requestsRef = collection(db, "requests");
+        // This query will be allowed by the new security rules
+        const q = query(requestsRef, where("cedula", "==", cedula));
+        const querySnapshot = await getDocs(q);
         
         console.log(`DEBUG: Found ${querySnapshot.docs.length} requests for cedula ${cedula}.`);
         
@@ -101,18 +75,18 @@ const fetchRequestsFlow = ai.defineFlow(
             const data = doc.data();
             
             let dateStr: string;
-
-            if (data.createdAt && typeof data.createdAt.toDate === 'function') { // Check for Firestore Timestamp
+            // Firestore timestamps can be tricky. Handle different formats.
+            if (data.createdAt && typeof data.createdAt.toDate === 'function') { // Firestore Timestamp
                 dateStr = format(data.createdAt.toDate(), "yyyy-MM-dd");
-            } else if (data.createdAt && typeof data.createdAt === 'string') {
+            } else if (data.createdAt && typeof data.createdAt === 'string') { // ISO String
                 try {
                     dateStr = format(parseISO(data.createdAt), "yyyy-MM-dd");
                 } catch {
-                     dateStr = format(new Date(), "yyyy-MM-dd");
+                     dateStr = format(new Date(), "yyyy-MM-dd"); // Fallback
                 }
-            } else if (data.date && typeof data.date === 'string') {
+            } else if (data.date && typeof data.date === 'string') { // Date string field
                 dateStr = data.date;
-            } else {
+            } else { // Ultimate fallback
                 dateStr = format(new Date(), "yyyy-MM-dd");
             }
             
@@ -124,6 +98,9 @@ const fetchRequestsFlow = ai.defineFlow(
                 financingAmount: data.financingAmount ?? null,
             };
         });
+
+        // Sort by date descending on the server before returning
+        requestsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         console.log("DEBUG: Processed requests data:", requestsData);
         return requestsData;
