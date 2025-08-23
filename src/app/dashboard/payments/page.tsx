@@ -35,12 +35,12 @@ interface Payment {
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user] = useAuthState(auth);
+  const [user, userLoading] = useAuthState(auth);
 
   useEffect(() => {
     const fetchPayments = async () => {
-      if (!user) {
-          setLoading(false);
+      if (userLoading || !user) {
+          if (!userLoading) setLoading(false);
           return;
       }
       try {
@@ -65,8 +65,10 @@ export default function PaymentsPage() {
       }
     };
 
-    fetchPayments();
-  }, [user]);
+    if (user) {
+        fetchPayments();
+    }
+  }, [user, userLoading]);
 
   return (
     <Card>
@@ -108,7 +110,7 @@ export default function PaymentsPage() {
               payments.map((payment) => (
                 <TableRow key={payment.id}>
                   <TableCell className="hidden sm:table-cell font-medium">
-                    {payment.id}
+                    {payment.id.substring(0, 8)}...
                   </TableCell>
                   <TableCell className="font-medium">{payment.equipment}</TableCell>
                   <TableCell>{payment.method}</TableCell>
