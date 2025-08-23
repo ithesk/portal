@@ -133,7 +133,7 @@ export default function ProductsPage() {
                   <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                   <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
                   <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-10" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : (
@@ -160,7 +160,7 @@ export default function ProductsPage() {
                     {product.initialPayment}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">{product.stock}</TableCell>
-                  <TableCell>
+                  <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -174,8 +174,10 @@ export default function ProductsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                              <DropdownMenuItem>Editar</DropdownMenuItem>
-                              <DropdownMenuItem>Eliminar</DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/internal/products/${product.id}/edit`}>Editar</Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">Eliminar</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
