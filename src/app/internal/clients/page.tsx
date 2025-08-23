@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { collection, getDocs, QueryDocumentSnapshot, DocumentData, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, QueryDocumentSnapshot, DocumentData, addDoc, serverTimestamp, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -66,6 +66,22 @@ function NewClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
         }
 
         try {
+            // Check for duplicate cedula
+            const usersRef = collection(db, "users");
+            const q = query(usersRef, where("cedula", "==", formData.cedula));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                toast({
+                    variant: "destructive",
+                    title: "Cédula duplicada",
+                    description: "Ya existe un cliente con este número de cédula."
+                });
+                setLoading(false);
+                return;
+            }
+
+
             await addDoc(collection(db, "users"), {
                 name: formData.name,
                 email: formData.email,
