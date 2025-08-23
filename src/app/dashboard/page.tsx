@@ -62,17 +62,12 @@ export default function Dashboard() {
         const paymentsQuery = query(collection(db, "payments"), where("userId", "==", user.uid), orderBy("date", "desc"), limit(1));
         const paymentsSnapshot = await getDocs(paymentsQuery);
         if (!paymentsSnapshot.empty) {
-          setLastPayment(paymentsSnapshot.docs[0].data().amount);
+          const paymentData = paymentsSnapshot.docs[0].data();
+          setLastPayment(paymentData.amount ? `RD$ ${parseFloat(paymentData.amount).toFixed(2)}` : null);
         }
 
-        // Fetch recent activity
-        const userDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', user.uid)));
-        let cedula = '';
-        if (!userDoc.empty) {
-            cedula = userDoc.docs[0].data().cedula;
-        }
-
-        const requestsQuery = query(collection(db, "requests"), where("cedula", "==", cedula), orderBy("createdAt", "desc"), limit(3));
+        // Fetch recent activity from requests
+        const requestsQuery = query(collection(db, "requests"), where("userId", "==", user.uid), orderBy("createdAt", "desc"), limit(3));
         const requestsSnapshot = await getDocs(requestsQuery);
         const requestsData: Activity[] = requestsSnapshot.docs.map(doc => {
             const data = doc.data();
@@ -82,10 +77,11 @@ export default function Dashboard() {
                 type: "Solicitud",
                 status: data.status,
                 date: format(data.createdAt.toDate(), 'yyyy-MM-dd'),
-                amount: data.financingAmount ? `$${data.financingAmount.toFixed(2)}` : null,
+                amount: data.financingAmount ? `RD$ ${data.financingAmount.toFixed(2)}` : null,
             };
         });
 
+        // Fetch recent activity from payments
         const paymentsActivityQuery = query(collection(db, "payments"), where("userId", "==", user.uid), orderBy("date", "desc"), limit(3));
         const paymentsActivitySnapshot = await getDocs(paymentsActivityQuery);
         const paymentsData: Activity[] = paymentsActivitySnapshot.docs.map(doc => {
@@ -96,10 +92,11 @@ export default function Dashboard() {
                 type: "Pago",
                 status: data.status,
                 date: data.date,
-                amount: data.amount,
+                amount: data.amount ? `RD$ ${parseFloat(data.amount).toFixed(2)}` : null,
             };
         });
-
+        
+        // Combine, sort, and slice activity
         const combinedActivity = [...requestsData, ...paymentsData]
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .slice(0, 5);
@@ -126,7 +123,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Saldo Actual</CardDescription>
-            <CardTitle className="text-4xl">$0.00</CardTitle>
+            <CardTitle className="text-4xl">RD$ 0.00</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
@@ -137,7 +134,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Próximo Pago</CardDescription>
-            <CardTitle className="text-4xl">$0.00</CardTitle>
+            <CardTitle className="text-4xl">RD$ 0.00</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
@@ -152,14 +149,14 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
-              -
+              {equipmentCount > 0 ? "Activos" : "-"}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Último Pago</CardDescription>
-            <CardTitle className="text-4xl">{lastPayment || '$0.00'}</CardTitle>
+            <CardTitle className="text-4xl">{lastPayment || 'N/A'}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
@@ -200,7 +197,7 @@ export default function Dashboard() {
                         {activity.type}
                       </TableCell>
                        <TableCell className="hidden sm:table-cell">
-                        <Badge variant={activity.status === "Aprobado" || activity.status === "Completado" ? "outline" : "secondary"}>
+                        <Badge variant={activity.status === "Aprobado" || activity.status === "Completado" ? "default" : "secondary"} className={activity.status === "Aprobado" || activity.status === "Completado" ? "bg-green-100 text-green-800" : ""}>
                           {activity.status}
                         </Badge>
                       </TableCell>
