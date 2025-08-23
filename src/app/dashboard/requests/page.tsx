@@ -35,35 +35,40 @@ export default function ClientRequestsPage() {
 
   useEffect(() => {
     const fetchRequests = async () => {
-      console.log("Paso 1: Iniciando fetchRequests. User loading:", userLoading);
-      if (userLoading) return;
+      console.log("CLIENT DEBUG: Iniciando fetchRequests. User loading:", userLoading);
+      if (userLoading) {
+        console.log("CLIENT DEBUG: userLoading es true, esperando...");
+        return;
+      }
 
-      console.log("Paso 2: userLoading ha terminado. User object:", user);
+      console.log("CLIENT DEBUG: userLoading ha terminado. Objeto de usuario:", user);
       if (!user) {
-        if (!userLoading) setLoading(false);
-        console.log("Paso 2a: No hay usuario, saliendo.");
+        if (!userLoading) {
+            setLoading(false);
+            console.log("CLIENT DEBUG: No hay usuario autenticado. Saliendo.");
+        }
         return;
       }
 
       try {
         setLoading(true);
-        console.log("Paso 3: Llamando al flow 'fetchRequestsForUser' con userId:", user.uid);
+        console.log(`CLIENT DEBUG: Llamando al flow 'fetchRequestsForUser' con userId: ${user.uid}`);
         
         const requestsData = await fetchRequestsForUser({ userId: user.uid });
         
-        console.log("Paso 4: Flow ejecutado. Datos recibidos:", requestsData);
+        console.log("CLIENT DEBUG: Flow ejecutado exitosamente. Datos recibidos:", JSON.stringify(requestsData, null, 2));
         setRequests(requestsData);
 
       } catch (error) {
-        console.error("Paso 5: ERROR en fetchRequests. El error es:", error);
+        console.error("CLIENT DEBUG: Ocurrió un error CRÍTICO al llamar a fetchRequestsForUser.", error);
         toast({
             variant: "destructive",
             title: "Error al cargar solicitudes",
-            description: "Hubo un problema al cargar tus solicitudes."
+            description: "Hubo un problema al cargar tus solicitudes. Revisa la consola para más detalles."
         })
       } finally {
         setLoading(false);
-        console.log("Paso 6: fetchRequests finalizado.");
+        console.log("CLIENT DEBUG: fetchRequests finalizado.");
       }
     };
 

@@ -1,61 +1,70 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Función para verificar si un usuario es un gestor (Admin o Gestor)
-    function isManager() {
-      // Obtiene el documento del usuario que hace la solicitud y verifica su rol.
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
+  
+    // --- Default Deny ---
+    // Deny all reads and writes by default
+    match /{document=**} {
+      allow read, write: if false;
     }
-
-    // Reglas para la colección de usuarios
-    match /users/{userId} {
-      // Un usuario puede leer y actualizar su propio perfil.
-      // Un gestor puede leer cualquier perfil.
-      allow get, update: if request.auth.uid == userId || isManager();
-
-      // Un usuario puede crear su propia cuenta.
-      // Un gestor puede crear nuevas cuentas (clientes).
-      allow create: if request.auth.uid == userId || isManager();
-
-      // Solo los gestores pueden listar o eliminar usuarios.
-      allow list, delete: if isManager();
-    }
-
-    // Reglas para la colección de productos
+    
+    // --- Public Access ---
+    // Anyone can read products that are marked as "Publicado"
     match /products/{productId} {
-      // CUALQUIERA puede leer los productos. Esto es para la página pública.
-      allow get, list: if true;
-      
-      // Solo los gestores pueden crear, actualizar o eliminar productos.
-      allow write: if isManager();
+      allow read: if resource.data.status == 'Publicado';
     }
-
-    // Reglas para la colección de solicitudes de financiamiento
-    match /requests/{requestId} {
-        // Un gestor puede leer y escribir cualquier solicitud.
-        allow read, write: if isManager();
+    
+    // --- Authenticated User Access ---
+    // An authenticated user can only access their OWN documents.
+    
+    // Users can read/update their own user document
+    match /users/{userId} {
+      allow get, update: if request.auth != null && request.auth.uid == userId;
+      // Allow user creation during registration
+      allow create: if request.auth != null;
     }
-
-    // Reglas para la colección de equipos
+    
+    // Users can read their own equipment/payments based on userId
     match /equipment/{equipmentId} {
-      // Un cliente puede leer los equipos que le pertenecen (su userId está en el documento).
-      // Un gestor puede leer cualquier equipo.
-      allow get, list: if resource.data.userId == request.auth.uid || isManager();
-
-      // Solo los gestores pueden crear, actualizar o eliminar equipos.
-      allow write: if isManager();
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+    match /payments/{paymentId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
-    // Reglas para la colección de pagos
-    match /payments/{paymentId} {
-      // Un cliente puede leer los pagos que le pertenecen.
-      // Un gestor puede leer cualquier pago.
-      allow get, list: if resource.data.userId == request.auth.uid || isManager();
+    // --- Internal/Admin Access ---
+    // This function checks if the user has an Admin or Gestor role.
+    function isInternalUser() {
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
+    }
+    
+    // Internal users can manage everything.
+    match /users/{docId} {
+      allow read, write: if isInternalUser();
+    }
+    
+    match /requests/{docId} {
+       allow read, write: if isInternalUser();
+    }
 
-      // Solo los gestores pueden crear, actualizar o eliminar pagos.
-      allow write: if isManager();
+    match /clients/{docId} {
+      allow read, write: if isInternalUser();
+    }
+
+    match /equipment/{docId} {
+       allow read, write: if isInternalUser();
+    }
+
+    match /payments/{docId} {
+       allow read, write: if isInternalUser();
+    }
+
+    // Admins can manage all products, overriding public rule.
+     match /products/{docId} {
+      allow write: if isInternalUser();
     }
   }
 }
