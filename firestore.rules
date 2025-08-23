@@ -1,47 +1,65 @@
 
 rules_version = '2';
 
-// Apply rules to the 'alzadatos' database
 service cloud.firestore {
-  match /databases/alzadatos/documents {
-  
-    // Default deny all reads and writes
-    match /{document=**} {
-      allow read, write: if false;
+  match /databases/{database}/documents {
+
+    // Helper function to check if a user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if the user is the owner of the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // PUBLIC: Allow anyone to read the list of published products
+    // Helper function to check if the user is an Admin or Gestor
+    function isInternalUser() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
+    }
+
+    // --- Public Access Rules ---
     match /products/{productId} {
       allow read: if true;
     }
 
-    // USERS: Can only read/write their own data
+    // --- Client/User Access Rules ---
+
+    // Users can read/update their own user document.
+    // New users can be created during registration.
     match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
+      allow read, update: if isOwner(userId);
+      allow create: if isAuthenticated();
     }
 
-    // REQUESTS: 
-    // Logged-in users can create requests.
-    // Reading requests is handled by the secure 'fetchRequestsFlow'.
-    match /requests/{requestId} {
-        allow create: if request.auth != null;
-        allow read, write: if false; // Must be read via secure flow
-    }
-    
-    // EQUIPMENT: 
-    // Logged-in users can read their own equipment.
-    // Creation/Update is handled by secure backend flows.
+    // Users can read their own equipment.
+    // Internal users can manage all equipment records.
     match /equipment/{equipmentId} {
-      allow create, update: if false; // Only backend can do this
-      allow read: if request.auth.uid == resource.data.userId;
+      allow read: if isOwner(resource.data.userId) || isInternalUser();
+      allow create, update: if isInternalUser();
     }
     
-     // PAYMENTS: 
-    // Logged-in users can read their own payments.
+    // Users can read their own payments.
+    // Internal users can manage all payments.
     match /payments/{paymentId} {
-       allow create: if request.auth != null;
-       allow read: if request.auth.uid == resource.data.userId;
-       allow write: if false;
+      allow read: if isOwner(resource.data.userId) || isInternalUser();
+       allow create, update: if isInternalUser();
     }
+
+    // This is more complex. A user needs to see requests matching their cedula,
+    // which is stored in their user document. This rule structure allows that.
+    // Internal users can manage all requests.
+    match /requests/{requestId} {
+      allow read: if (isAuthenticated() && resource.data.cedula == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.cedula) || isInternalUser();
+      allow create, update: if isInternalUser();
+    }
+
+    // --- Default Deny ---
+    // Make sure to have a default deny rule if not explicitly covered above.
+    // This is implicitly handled by Firestore, but being explicit can be clearer.
+    // match /{document=**} {
+    //   allow read, write: if false;
+    // }
   }
 }
