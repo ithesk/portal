@@ -65,12 +65,23 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
                 const paymentsMade = paymentsSnapshot.docs.map(doc => doc.data());
                 
                 let allUpcomingPayments: ScheduleItem[] = [];
-                let totalFinanced = 0;
+                
+                // --- CORRECT BALANCE CALCULATION ---
+                let totalAmountOwed = 0;
+                requestsSnapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    // totalPaid is the full amount the user will pay for that item (initial + installments)
+                    totalAmountOwed += data.totalPaid || 0; 
+                });
+
+                const totalAmountPaid = paymentsMade.reduce((acc, p) => acc + (p.amount || 0), 0);
+                const currentBalance = totalAmountOwed - totalAmountPaid;
+                // --- END OF CORRECT BALANCE CALCULATION ---
+
 
                 for (const requestDoc of requestsSnapshot.docs) {
                     const request = requestDoc.data();
                     const requestId = requestDoc.id;
-                    totalFinanced += request.financingAmount || 0;
                     
                     const equipmentName = request.itemType === 'phone' ? 'Teléfono' : 'Tablet'; 
                     
@@ -81,7 +92,11 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
 
                     for (let i = 0; i < request.installments; i++) {
                          const installmentNumber = i + 1;
-                         const isPaid = installmentNumber <= paymentsForThisRequest;
+                         // A payment is "paid" if it's not an initial payment. We assume initial payment is covered.
+                         // Let's refine this to check against actual payment count.
+                         const paymentsMadeForInstallments = paymentsMade.filter(p => p.requestId === requestId && p.type !== 'Inicial').length;
+
+                         const isPaid = i < paymentsMadeForInstallments;
 
                          if (!isPaid) {
                              const paymentDate = add(startDate, { days: (installmentNumber) * 15 });
@@ -95,20 +110,6 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
                          }
                     }
                 }
-
-                // Calculate total balance
-                const totalPaid = paymentsMade.reduce((acc, p) => acc + (p.amount || 0), 0);
-                const initialPaymentsTotal = requestsSnapshot.docs.reduce((acc, doc) => acc + (doc.data().initialPayment || 0), 0);
-                
-                let totalDebt = 0;
-                requestsSnapshot.docs.forEach(doc => {
-                    const data = doc.data();
-                    // Use totalPaid from request if available, otherwise calculate
-                    const requestTotal = data.totalPaid ? data.totalPaid : (data.initialPayment || 0) + ((data.biweeklyPayment || 0) * (data.installments || 0));
-                    totalDebt += requestTotal;
-                });
-                
-                const currentBalance = totalDebt - initialPaymentsTotal - totalPaid;
 
 
                 // Sort all payments by date and take the next 10 for display
