@@ -13,38 +13,35 @@ import { z } from 'zod';
 import * as admin from 'firebase-admin';
 
 // --- Firebase Admin SDK Initialization ---
+let db: admin.firestore.Firestore;
 
-// Check if the app is already initialized to prevent errors
-if (!admin.apps.length) {
-  try {
-    // Safely parse the service account key from environment variables
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-      : undefined;
-
-    // Initialize the app only if service account is available
-    if (serviceAccount) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-      });
-      console.log("DEBUG: Firebase Admin SDK inicializado.");
+function initializeFirebase() {
+    if (admin.apps.length === 0) {
+        console.log("DEBUG: No Firebase Admin app initialized. Initializing...");
+        try {
+            const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
+            if (!serviceAccountString) {
+                console.error("DEBUG: FIREBASE_SERVICE_ACCOUNT env var is not defined.");
+                throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable not set.");
+            }
+            const serviceAccount = JSON.parse(serviceAccountString);
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+            });
+            console.log("DEBUG: Firebase Admin SDK initialized successfully.");
+        } catch (e: any) {
+            console.error('DEBUG: Critical error initializing Firebase Admin SDK:', e.message);
+            // We throw here because the app cannot function without it.
+            throw e; 
+        }
     } else {
-      console.error("DEBUG: FIREBASE_SERVICE_ACCOUNT no está definido. No se puede inicializar el Admin SDK.");
+        console.log("DEBUG: Firebase Admin app already initialized.");
     }
-  } catch (e: any) {
-    console.error('DEBUG: Error al inicializar Firebase Admin SDK:', e.message);
-  }
+    db = admin.firestore();
 }
 
-// Function to get the Firestore instance, ensuring the app is initialized first.
-function getDb() {
-  if (!admin.apps.length) {
-    console.error("DEBUG: Firebase Admin no está inicializado al intentar obtener la instancia de DB.");
-    // Return a dummy object or throw an error to avoid crashing, but indicate a problem
-    throw new Error("Firebase Admin SDK not initialized");
-  }
-  return admin.firestore();
-}
+// Call initialization logic when the module is loaded.
+initializeFirebase();
 
 // --- Schema Definitions ---
 
@@ -83,7 +80,6 @@ const fetchPublicProductsFlow = ai.defineFlow(
   async () => {
     console.log("DEBUG: Iniciando fetchPublicProductsFlow con Admin SDK.");
     try {
-        const db = getDb(); // Get DB instance inside the flow
         const productsRef = db.collection("products");
         const q = productsRef.where("status", "==", "Publicado");
         const querySnapshot = await q.get();
