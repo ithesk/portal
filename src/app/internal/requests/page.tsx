@@ -29,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { collection, getDocs, query, orderBy, doc, updateDoc, writeBatch, where, serverTimestamp, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, updateDoc, writeBatch, where, serverTimestamp, QueryDocumentSnapshot, DocumentData, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +43,7 @@ interface Request extends DocumentData {
   cedula: string;
   itemType: string;
   imei: string;
+  userId?: string;
 }
 
 export default function RequestsPage() {
@@ -85,17 +86,15 @@ export default function RequestsPage() {
       const requestDocRef = doc(db, "requests", request.id);
 
       // If approved, create the equipment record
-      if (status === "Aprobado") {
-        // 1. Find user by cedula to get their ID, if they exist
-        const usersRef = collection(db, "users");
-        const userQuery = query(usersRef, where("cedula", "==", request.cedula));
-        const userSnapshot = await getDocs(userQuery);
-
-        let userId = null;
-        let userName = request.client; // Use name from request as fallback
+      if (status === "Aprobado" && request.userId) {
         
+        const userDocRef = doc(db, "users", request.userId);
+        const userSnap = await getDoc(userDocRef);
+        const userName = userSnap.exists() ? userSnap.data().name : request.client;
+
         const equipmentData: any = {
-            cedula: request.cedula, // Store cedula for future linking
+            userId: request.userId,
+            cedula: request.cedula,
             name: request.itemType === 'phone' ? 'Teléfono' : 'Tablet',
             status: "Financiado",
             progress: 0,
@@ -106,23 +105,17 @@ export default function RequestsPage() {
             createdAt: serverTimestamp(),
             requestId: request.id,
         };
-
-        if (!userSnapshot.empty) {
-          const userDoc = userSnapshot.docs[0];
-          userId = userDoc.id;
-          userName = userDoc.data().name;
-          equipmentData.userId = userId;
-          equipmentData.client = userName;
-        } else {
-            toast({
-                title: "Cliente no registrado",
-                description: "Se creará el equipo sin vincular. Se asociará cuando el cliente se registre.",
-            });
-        }
         
-        // 2. Create new equipment document
         const newEquipmentRef = doc(collection(db, "equipment"));
         batch.set(newEquipmentRef, equipmentData);
+      } else if (status === "Aprobado" && !request.userId) {
+         toast({
+            variant: "destructive",
+            title: "Acción Requerida",
+            description: "Esta solicitud no tiene un ID de usuario. El cliente debe crear una cuenta para poder aprobarla.",
+        });
+        setUpdatingId(null);
+        return;
       }
 
       batch.update(requestDocRef, { status });

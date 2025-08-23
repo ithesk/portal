@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import SignatureCanvas from "react-signature-canvas";
 import {
@@ -19,6 +19,7 @@ import {
   Trash2,
   Info,
   Loader2,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,18 +45,37 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 
 const steps = [
-  { id: 1, title: "Verificación de Identidad" },
-  { id: 2, title: "Verificación Telefónica" },
-  { id: 3, title: "Detalles del Financiamiento" },
-  { id: 4, title: "Enlace MDM" },
-  { id: 5, title: "Contrato y Firma" },
+  { id: 1, title: "Información del Cliente" },
+  { id: 2, title: "Detalles del Financiamiento" },
+  { id: 3, title: "Enlace MDM" },
+  { id: 4, title: "Contrato y Firma" },
 ];
+
+interface Client {
+    id: string;
+    name: string;
+    cedula: string;
+    email: string;
+}
 
 export default function NewRequestPage() {
   const router = useRouter();
@@ -63,24 +83,34 @@ export default function NewRequestPage() {
   const [loading, setLoading] = useState(false);
 
   const [currentStep, setCurrentStep] = useState(1);
-
+  
   // Step 1
-  const [cedula, setCedula] = useState("");
+  const [openClientSearch, setOpenClientSearch] = useState(false)
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+        const q = query(collection(db, "users"), where("role", "==", "Cliente"));
+        const querySnapshot = await getDocs(q);
+        const clientsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Client));
+        setClients(clientsData);
+    };
+    fetchClients();
+  }, []);
+
 
   // Step 2
-  const [phone, setPhone] = useState("");
-
-  // Step 3
   const [itemType, setItemType] = useState<string>("");
   const [itemValue, setItemValue] = useState(12500);
   const [initialPercentage, setInitialPercentage] = useState(40);
   const [installments, setInstallments] = useState(6);
   const [requestDate] = useState(new Date());
 
-  // Step 4
+  // Step 3
   const [imei, setImei] = useState("");
 
-  // Step 5
+  // Step 4
   const sigPad = useRef<SignatureCanvas>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
 
@@ -101,7 +131,7 @@ export default function NewRequestPage() {
     return format(date, "dd/MM/yyyy", { locale: es });
   });
 
-  const progress = (currentStep / steps.length) * 100;
+  const progress = ((currentStep -1) / (steps.length - 1)) * 100;
 
   const nextStep = () =>
     setCurrentStep((prev) => Math.min(prev + 1, steps.length));
@@ -120,6 +150,10 @@ export default function NewRequestPage() {
     e.preventDefault();
     
     if (currentStep !== steps.length) {
+        if (currentStep === 1 && !selectedClient) {
+            toast({ variant: "destructive", title: "Cliente no seleccionado", description: "Debes buscar y seleccionar un cliente para continuar."});
+            return;
+        }
         nextStep();
         return; 
     }
@@ -136,10 +170,17 @@ export default function NewRequestPage() {
         return;
     }
 
+    if (!selectedClient) {
+        toast({ variant: "destructive", title: "Error Fatal", description: "No hay un cliente seleccionado."});
+        setLoading(false);
+        return;
+    }
+
     try {
         await addDoc(collection(db, "requests"), {
-            cedula,
-            phone,
+            userId: selectedClient.id,
+            cedula: selectedClient.cedula,
+            client: selectedClient.name,
             itemType,
             itemValue,
             initialPercentage,
@@ -155,7 +196,6 @@ export default function NewRequestPage() {
             status: "Pendiente de Aprobación",
             date: format(requestDate, "yyyy-MM-dd"),
             createdAt: serverTimestamp(),
-            client: `Cliente C.I. ${cedula}`, // Placeholder, needs to be linked to a real client
             type: `Financiamiento de ${itemType}`,
         });
 
@@ -193,58 +233,72 @@ export default function NewRequestPage() {
           </CardHeader>
           <CardContent className="min-h-[450px]">
             {currentStep === 1 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
-                <div className="space-y-4">
-                  <CardTitle>Identificación del Cliente</CardTitle>
+               <div className="flex flex-col items-center justify-center pt-6 space-y-6">
+                 <CardTitle>Información del Cliente</CardTitle>
                   <CardDescription>
-                    Ingresa el número de cédula del solicitante y sube las fotos
-                    requeridas.
+                    Busca y selecciona un cliente existente para iniciar una nueva solicitud de financiamiento.
                   </CardDescription>
-                  <div className="space-y-2">
-                    <Label htmlFor="cedula">Número de Cédula</Label>
-                    <Input id="cedula" placeholder="V-12.345.678" value={cedula} onChange={(e) => setCedula(e.target.value)} required />
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Foto de la Cédula (Frente)</Label>
-                    <Button variant="outline" className="w-full" type="button">
-                      <Camera className="mr-2" /> Subir o Tomar Foto
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Selfie del Cliente</Label>
-                    <Button variant="outline" className="w-full" type="button">
-                      <Camera className="mr-2" /> Subir o Tomar Foto
-                    </Button>
-                  </div>
-                </div>
+                  
+                <Popover open={openClientSearch} onOpenChange={setOpenClientSearch}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openClientSearch}
+                            className="w-[400px] justify-between text-lg p-6"
+                        >
+                            {selectedClient ? selectedClient.name : "Buscar cliente por nombre o cédula..."}
+                            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0">
+                        <Command>
+                            <CommandInput placeholder="Buscar cliente..." />
+                            <CommandList>
+                                <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                                <CommandGroup>
+                                {clients.map((client) => (
+                                    <CommandItem
+                                        key={client.id}
+                                        value={`${client.name} ${client.cedula}`}
+                                        onSelect={() => {
+                                            setSelectedClient(client)
+                                            setOpenClientSearch(false)
+                                        }}
+                                    >
+                                        <CheckCircle
+                                            className={cn(
+                                                "mr-2 h-4 w-4",
+                                                selectedClient?.id === client.id ? "opacity-100" : "opacity-0"
+                                            )}
+                                        />
+                                        <div>
+                                            <p>{client.name}</p>
+                                            <p className="text-xs text-muted-foreground">{client.cedula}</p>
+                                        </div>
+                                    </CommandItem>
+                                ))}
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
+
+                {selectedClient && (
+                    <Card className="w-[400px] bg-muted/50">
+                        <CardHeader>
+                            <CardTitle className="text-xl">{selectedClient.name}</CardTitle>
+                            <CardDescription>Cédula: {selectedClient.cedula}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                             <p className="text-sm text-muted-foreground">Correo: {selectedClient.email}</p>
+                        </CardContent>
+                    </Card>
+                )}
               </div>
             )}
 
             {currentStep === 2 && (
-              <div className="flex flex-col items-center justify-center text-center space-y-4 pt-6">
-                <Phone className="h-12 w-12 text-primary" />
-                <CardTitle>Verificación Telefónica</CardTitle>
-                <CardDescription className="max-w-md">
-                  Ingresa el número de teléfono del cliente para enviar un código
-                  de verificación.
-                </CardDescription>
-                <div className="flex w-full max-w-sm items-center space-x-2">
-                  <Input type="tel" placeholder="Número de teléfono" value={phone} onChange={(e) => setPhone(e.target.value)} required />
-                  <Button type="button">Enviar Código</Button>
-                </div>
-                <div className="flex w-full max-w-xs items-center space-x-2 pt-4">
-                  <MessageSquare className="text-muted-foreground" />
-                  <Input
-                    id="verification-code"
-                    placeholder="Código de Verificación"
-                  />
-                </div>
-              </div>
-            )}
-
-            {currentStep === 3 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
                 <div className="space-y-4">
                   <CardTitle>Detalles del Artículo</CardTitle>
@@ -356,7 +410,7 @@ export default function NewRequestPage() {
               </div>
             )}
             
-            {currentStep === 4 && (
+            {currentStep === 3 && (
               <div className="flex flex-col items-center justify-center text-center space-y-4 pt-6">
                   <Smartphone className="h-12 w-12 text-primary" />
                   <CardTitle>Enlace con Sistema MDM</CardTitle>
@@ -373,14 +427,14 @@ export default function NewRequestPage() {
               </div>
             )}
 
-            {currentStep === 5 && (
+            {currentStep === 4 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
                 <div>
                   <CardTitle className="flex items-center mb-4">
                       <FileSignature className="mr-2" /> Contrato de Financiamiento
                   </CardTitle>
                   <div className="border rounded-lg p-4 h-[350px] overflow-y-auto text-sm space-y-4 bg-muted/50">
-                      <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy", { locale: es })}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente con C.I. <strong>{cedula || "V-12.345.678"}</strong>.</p>
+                      <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy", { locale: es })}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente <strong>{selectedClient?.name || '...'}</strong> con C.I. <strong>{selectedClient?.cedula || "..."}</strong>.</p>
                       <p>El cliente solicita el financiamiento de un <strong>{itemType || 'equipo'}</strong> valorado en <strong>RD$ {itemValue.toFixed(2)}</strong>.</p>
                       <p>El cliente se compromete a pagar una inicial de <strong>RD$ {initialPayment.toFixed(2)}</strong> ({initialPercentage}%) en la fecha de hoy.</p>
                       <p>El monto restante de <strong>RD$ {financingAmount.toFixed(2)}</strong> más los intereses de <strong>RD$ {totalInterest.toFixed(2)}</strong> (Total a pagar en cuotas: <strong>RD$ {totalToPayInInstallments.toFixed(2)}</strong>) será pagado en <strong>{installments} cuotas quincenales</strong> de aproximadamente <strong>RD$ {biweeklyPayment.toFixed(2)}</strong> cada una.</p>
@@ -447,7 +501,4 @@ export default function NewRequestPage() {
       </form>
     </div>
   );
-
-    
-
-    
+}

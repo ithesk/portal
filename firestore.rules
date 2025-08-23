@@ -1,70 +1,61 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // --- Default Deny ---
-    // Deny all reads and writes by default
-    match /{document=**} {
-      allow read, write: if false;
+
+    // --- Helper function to check for Admin/Gestor role ---
+    function isManager() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
     }
-    
-    // --- Public Access ---
-    // Anyone can read products that are marked as "Publicado"
+
+    // --- Public access ---
     match /products/{productId} {
-      allow read: if resource.data.status == 'Publicado';
+      // Anyone can see published products
+      allow get: if resource.data.status == 'Publicado';
+      allow list: if request.query.get("status") == "Publicado";
+      
+      // Only managers can create, update, or delete products
+      allow write: if isManager();
     }
-    
-    // --- Authenticated User Access ---
-    // An authenticated user can only access their OWN documents.
-    
-    // Users can read/update their own user document
+
+    // --- User-specific access ---
     match /users/{userId} {
-      allow get, update: if request.auth != null && request.auth.uid == userId;
-      // Allow user creation during registration
-      allow create: if request.auth != null;
+      // A user can create their own account or a manager can create it.
+      allow create: if request.auth.uid == userId || isManager();
+      
+      // A user can read or update their OWN data. Managers can read any user's data.
+      allow get, update: if request.auth.uid == userId || isManager();
+      
+      // Only managers can delete users or list all users.
+      allow delete, list: if isManager();
+    }
+
+    match /requests/{requestId} {
+      // A user can create their own request.
+      allow create: if request.auth.uid == request.resource.data.userId;
+      
+      // A user can read requests where their userId matches.
+      // This is the key rule that allows the client-side query to work.
+      allow list, get: if request.auth.uid == request.query.get("userId") || isManager();
+      
+      // Only managers can update or delete requests.
+      allow update, delete: if isManager();
     }
     
-    // Users can read their own equipment/payments based on userId
     match /equipment/{equipmentId} {
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+       // A user can read equipment where their userId matches.
+      allow list, get: if request.auth.uid == request.query.get("userId") || isManager();
+
+      // Only managers can create, update, or delete equipment records.
+      allow write: if isManager();
     }
-    
+
     match /payments/{paymentId} {
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
-    }
+       // A user can read payments where their userId matches.
+      allow list, get: if request.auth.uid == request.query.get("userId") || isManager();
 
-    // --- Internal/Admin Access ---
-    // This function checks if the user has an Admin or Gestor role.
-    function isInternalUser() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
-    }
-    
-    // Internal users can manage everything.
-    match /users/{docId} {
-      allow read, write: if isInternalUser();
-    }
-    
-    match /requests/{docId} {
-       allow read, write: if isInternalUser();
-    }
-
-    match /clients/{docId} {
-      allow read, write: if isInternalUser();
-    }
-
-    match /equipment/{docId} {
-       allow read, write: if isInternalUser();
-    }
-
-    match /payments/{docId} {
-       allow read, write: if isInternalUser();
-    }
-
-    // Admins can manage all products, overriding public rule.
-     match /products/{docId} {
-      allow write: if isInternalUser();
+      // Only managers can create, update, or delete payment records.
+      allow write: if isManager();
     }
   }
 }

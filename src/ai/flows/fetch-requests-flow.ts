@@ -1,6 +1,5 @@
 
 'use server';
-import 'dotenv/config'; // Ensure env variables are loaded
 /**
  * @fileOverview A flow for securely fetching financing requests for a given user.
  *
@@ -11,36 +10,8 @@ import 'dotenv/config'; // Ensure env variables are loaded
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { format, parseISO } from "date-fns";
-import * as admin from 'firebase-admin';
-
-// --- Firebase Admin SDK Initialization ---
-
-function initializeFirebaseAdmin() {
-    // This function will only be called if there are no initialized apps.
-    // It's safe to call it multiple times.
-    if (admin.apps.length > 0) {
-        console.log("SERVER DEBUG: Firebase Admin already initialized.");
-        return;
-    }
-    
-    console.log("SERVER DEBUG: Attempting to initialize Firebase Admin...");
-    const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!serviceAccountString) {
-        console.error("SERVER DEBUG: CRITICAL - FIREBASE_SERVICE_ACCOUNT env var is NOT defined.");
-        throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable not set.");
-    }
-    
-    try {
-        const serviceAccount = JSON.parse(serviceAccountString);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
-        console.log("SERVER DEBUG: Firebase Admin initialized SUCCESSFULLY.");
-    } catch (e: any) {
-        console.error("SERVER DEBUG: CRITICAL - Error parsing or using service account.", e.message);
-        throw new Error("Failed to initialize Firebase Admin SDK: " + e.message);
-    }
-}
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; // Using client SDK
 
 
 // --- Schema Definitions ---
@@ -74,41 +45,25 @@ const fetchRequestsFlow = ai.defineFlow(
     outputSchema: FetchRequestsOutputSchema,
   },
   async ({ userId }) => {
-    // GUARANTEE INITIALIZATION: Call this at the start of the flow execution.
-    try {
-        initializeFirebaseAdmin();
-    } catch (initError) {
-        console.error("SERVER DEBUG: CRITICAL - Firebase init failed inside flow.", initError);
-        return []; // Stop execution if firebase fails to init
+    console.log(`CLIENT_SDK_FLOW: fetchRequestsFlow started for userId: ${userId}`);
+    if (!userId) {
+        console.error("CLIENT_SDK_FLOW: No userId provided.");
+        return [];
     }
 
-
     try {
-        console.log(`SERVER DEBUG: fetchRequestsFlow started for userId: ${userId} using ADMIN SDK`);
-        const db = admin.firestore();
+        const requestsRef = collection(db, "requests");
         
-        // 1. Fetch user document on the server to get their cedula
-        const userDocRef = db.collection('users').doc(userId);
-        const userDocSnap = await userDocRef.get();
+        // This query now directly uses the userId, which we can secure in the rules.
+        const q = query(
+            requestsRef, 
+            where("userId", "==", userId), 
+            orderBy("createdAt", "desc")
+        );
 
-        if (!userDocSnap.exists) {
-            console.error(`SERVER DEBUG: User with ID ${userId} not found in Firestore.`);
-            return [];
-        }
-
-        const cedula = userDocSnap.data()?.cedula;
-        if (!cedula) {
-            console.error(`SERVER DEBUG: Cedula not found for user with ID ${userId}.`);
-            return [];
-        }
-        console.log(`SERVER DEBUG: Found cedula ${cedula} for user ${userId}.`);
-
-        // 2. Fetch requests using the obtained cedula
-        const requestsRef = db.collection("requests");
-        const q = requestsRef.where("cedula", "==", cedula);
-        const querySnapshot = await q.get();
+        const querySnapshot = await getDocs(q);
         
-        console.log(`SERVER DEBUG: Found ${querySnapshot.docs.length} requests for cedula ${cedula}.`);
+        console.log(`CLIENT_SDK_FLOW: Found ${querySnapshot.docs.length} requests for userId ${userId}.`);
         
         const requestsData = querySnapshot.docs.map((doc) => {
             const data = doc.data();
@@ -133,14 +88,30 @@ const fetchRequestsFlow = ai.defineFlow(
             };
         });
 
-        requestsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-        console.log("SERVER DEBUG: Processed requests data:", JSON.stringify(requestsData, null, 2));
+        console.log("CLIENT_SDK_FLOW: Processed requests data:", JSON.stringify(requestsData, null, 2));
         return requestsData;
 
     } catch (error) {
-        console.error("SERVER DEBUG: CRITICAL - Error in fetchRequestsFlow with ADMIN SDK: ", error);
+        console.error("CLIENT_SDK_FLOW: CRITICAL - Error in fetchRequestsFlow with CLIENT SDK: ", error);
         return []; // Return empty array on error
     }
   }
+);
+
+// --- Helper to add userId to existing requests without it ---
+// This is a utility function that you might run once from a secure environment
+// if you need to backfill data. It's not part of the main flow.
+const backfillUserIdOnRequests = ai.defineFlow(
+    {
+        name: 'backfillUserIdOnRequests',
+        inputSchema: z.void(),
+        outputSchema: z.object({ success: z.boolean(), updatedCount: z.number() }),
+    },
+    async () => {
+        // THIS MUST RUN IN AN ADMIN CONTEXT (e.g., a local script with service account)
+        // For demonstration, we assume db has admin privileges here.
+        // In a real app, you would use the Admin SDK for this.
+        console.log("Backfill started. This is a manual operation.");
+        return { success: false, updatedCount: 0 };
+    }
 );
