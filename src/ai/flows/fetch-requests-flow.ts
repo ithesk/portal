@@ -9,7 +9,7 @@ import 'dotenv/config'; // Ensure env variables are loaded
  * - FetchRequestsOutput - The return type for the fetchRequestsForUser function.
  */
 import {ai} from '@/ai/genkit';
-import {z} from 'zod';
+import {z} from 'genkit';
 import { format, parseISO } from "date-fns";
 import * as admin from 'firebase-admin';
 
@@ -19,9 +19,11 @@ function initializeFirebaseAdmin() {
     // This function will only be called if there are no initialized apps.
     // It's safe to call it multiple times.
     if (admin.apps.length > 0) {
+        console.log("SERVER DEBUG: Firebase Admin already initialized.");
         return;
     }
-
+    
+    console.log("SERVER DEBUG: Attempting to initialize Firebase Admin...");
     const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!serviceAccountString) {
         console.error("SERVER DEBUG: CRITICAL - FIREBASE_SERVICE_ACCOUNT env var is NOT defined.");
@@ -29,7 +31,6 @@ function initializeFirebaseAdmin() {
     }
     
     try {
-        console.log("SERVER DEBUG: Initializing Firebase Admin with service account...");
         const serviceAccount = JSON.parse(serviceAccountString);
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
@@ -74,7 +75,13 @@ const fetchRequestsFlow = ai.defineFlow(
   },
   async ({ userId }) => {
     // GUARANTEE INITIALIZATION: Call this at the start of the flow execution.
-    initializeFirebaseAdmin();
+    try {
+        initializeFirebaseAdmin();
+    } catch (initError) {
+        console.error("SERVER DEBUG: CRITICAL - Firebase init failed inside flow.", initError);
+        return []; // Stop execution if firebase fails to init
+    }
+
 
     try {
         console.log(`SERVER DEBUG: fetchRequestsFlow started for userId: ${userId} using ADMIN SDK`);
