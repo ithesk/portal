@@ -38,14 +38,17 @@ export default function StorePage() {
 
   useEffect(() => {
     const getProducts = async () => {
+      console.log("DEBUG: Iniciando la obtención de productos en el cliente.");
       try {
         setLoading(true);
         const productsData = await fetchPublicProducts();
+        console.log("DEBUG: Datos recibidos del flow:", productsData);
         setProducts(productsData);
       } catch (error) {
-        console.error("Error fetching products: ", error);
+        console.error("DEBUG: Error al obtener productos en el cliente: ", error);
       } finally {
         setLoading(false);
+        console.log("DEBUG: Finalizó la obtención de productos.");
       }
     };
 
