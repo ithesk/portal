@@ -43,12 +43,19 @@ export default function ClientRequestsPage() {
 
   useEffect(() => {
     const fetchRequests = async () => {
-      if (userLoading) return;
+      console.log("DEBUG: Iniciando fetchRequests...");
+      if (userLoading) {
+        console.log("DEBUG: Aún cargando el usuario...");
+        return;
+      }
       
       if (!user) {
+        console.log("DEBUG: No hay usuario autenticado. Abortando.");
         setLoading(false);
         return;
       }
+
+      console.log(`DEBUG: Usuario autenticado. UID: ${user.uid}`);
 
       try {
         setLoading(true);
@@ -59,9 +66,13 @@ export default function ClientRequestsPage() {
             where("userId", "==", user.uid),
             orderBy("createdAt", "desc")
         );
+        
+        console.log("DEBUG: Ejecutando la siguiente consulta en Firestore:", q);
 
         const querySnapshot = await getDocs(q);
         
+        console.log(`DEBUG: La consulta devolvió ${querySnapshot.docs.length} documentos.`);
+
         const requestsData = querySnapshot.docs.map((doc) => {
             const data = doc.data();
             
@@ -88,14 +99,15 @@ export default function ClientRequestsPage() {
         setRequests(requestsData);
 
       } catch (error: any) {
-        console.error("Error fetching requests directly from client:", error);
+        console.error("DEBUG: CRITICAL - Error al obtener solicitudes directamente desde el cliente:", error);
         toast({
             variant: "destructive",
-            title: "Error al cargar solicitudes",
-            description: "Hubo un problema al cargar tus solicitudes. Revisa la consola para más detalles. " + error.message,
+            title: "Error al Cargar Solicitudes",
+            description: `Hubo un problema de permisos. Detalles: ${error.message}`,
         })
       } finally {
         setLoading(false);
+        console.log("DEBUG: Finalizó el proceso fetchRequests.");
       }
     };
 

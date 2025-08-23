@@ -3,58 +3,76 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check for Admin or Gestor role
-    function isInternalUser(userId) {
-      let userRole = get(/databases/$(database)/documents/users/$(userId)).data.role;
-      return userRole == 'Admin' || userRole == 'Gestor';
+    // Devuelve true si el usuario que hace la petición tiene el rol de "Admin" o "Gestor"
+    function isInternalUser() {
+      // Obtiene el documento del usuario desde la colección 'users' usando el ID del usuario autenticado.
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      // Comprueba si el campo 'role' en el documento del usuario es "Admin" o "Gestor".
+      return userDoc.data.role in ['Admin', 'Gestor'];
     }
 
-    // --- USER-FACING COLLECTIONS ---
-
-    // PUBLIC: Anyone can view published products
+    // --- REGLAS PÚBLICAS (Visitantes no autenticados) ---
     match /products/{productId} {
-      allow get: if resource.data.status == 'Publicado';
-      allow list: if request.query.offset == null || request.query.offset == 0; // Allow public listing
-      
-      // Internal users can manage products
-      allow write: if request.auth != null && isInternalUser(request.auth.uid);
+        // CUALQUIERA puede leer (get) un producto individual o listar (list) la colección
+        // si el estado del producto es "Publicado". Esto es para la página principal.
+        allow read: if resource.data.status == 'Publicado';
     }
 
-    // CLIENTS: Users can manage their own data
+    // --- REGLAS DE CLIENTES AUTENTICADOS ---
     match /users/{userId} {
+      // Un usuario solo puede leer, crear o actualizar SU PROPIO documento.
       allow get, update: if request.auth.uid == userId;
-      // Anyone can create a user account (register)
       allow create: if request.auth.uid == userId;
-      // Admins can view or delete any user
-      allow list, delete: if request.auth != null && isInternalUser(request.auth.uid);
+      // Los usuarios internos pueden ver los perfiles de los clientes.
+      allow get: if isInternalUser();
     }
-
+    
     match /requests/{requestId} {
-      // A user can read their own requests
-      allow get: if request.auth.uid == resource.data.userId;
-      // Allow a user to LIST requests only if they are querying for their OWN requests
-      allow list: if request.auth.uid != null && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
-      
-      // Internal users can manage all requests
-      allow read, write: if request.auth != null && isInternalUser(request.auth.uid);
+        // Un cliente puede leer una solicitud individual si el 'userId' del documento es el suyo.
+        allow get: if request.auth.uid == resource.data.userId;
+        
+        // **REGLA CLAVE CORREGIDA**:
+        // Un cliente puede LISTAR (hacer una consulta) la colección de solicitudes
+        // SOLAMENTE si la consulta tiene un filtro 'where' que busca su propio 'userId'.
+        // Esto evita que un cliente pueda pedir la lista completa de todas las solicitudes.
+        allow list: if request.auth.uid == request.query.filters[0].value;
+
+        // Los usuarios internos pueden leer/escribir cualquier solicitud.
+        allow read, write: if isInternalUser();
     }
     
     match /equipment/{equipmentId} {
-       // A user can read their own equipment
-      allow get: if request.auth.uid == resource.data.userId;
-      allow list: if request.auth.uid != null && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
+        // Un cliente puede leer un equipo individual si el 'userId' del documento es el suyo.
+        allow get: if request.auth.uid == resource.data.userId;
+        // Un cliente puede LISTAR los equipos que le pertenecen.
+        allow list: if request.auth.uid == request.query.filters[0].value;
+        
+        // Los usuarios internos pueden leer/escribir cualquier equipo.
+        allow read, write: if isInternalUser();
+    }
+    
+    match /payments/{paymentId} {
+        // Un cliente puede leer un pago individual si el 'userId' del documento es el suyo.
+        allow get: if request.auth.uid == resource.data.userId;
+        // Un cliente puede LISTAR los pagos que le pertenecen.
+        allow list: if request.auth.uid == request.query.filters[0].value;
 
-      // Internal users can manage all equipment
-      allow read, write: if request.auth != null && isInternalUser(request.auth.uid);
+        // Los usuarios internos pueden leer/escribir cualquier pago.
+        allow read, write: if isInternalUser();
     }
 
-    match /payments/{paymentId} {
-       // A user can read their own payments
-      allow get: if request.auth.uid == resource.data.userId;
-      allow list: if request.auth.uid != null && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
 
-      // Internal users can manage all payments
-      allow read, write: if request.auth != null && isInternalUser(request.auth.uid);
+    // --- REGLAS DE ADMINISTRACIÓN (Portal Interno) ---
+    // Estas reglas dan acceso a los usuarios internos a colecciones que los clientes no tocan.
+    match /clients/{docId} {
+      allow read, write: if isInternalUser();
+    }
+
+    // Los usuarios internos también necesitan gestionar productos que no están publicados.
+    match /products/{productId} {
+        allow write: if isInternalUser();
+        // Se añade la lectura para admins para que puedan ver borradores/archivados
+        allow read: if isInternalUser() || resource.data.status == 'Publicado';
     }
   }
 }
