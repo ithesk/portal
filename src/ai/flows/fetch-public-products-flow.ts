@@ -8,10 +8,27 @@
  * - FetchPublicProductsOutput - The return type for the fetchPublicProducts function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'zod';
-import { collection, getDocs, query, where, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { ai } from '@/ai/genkit';
+import { z } from 'zod';
+import * as admin from 'firebase-admin';
+
+// Firebase Admin SDK Initialization
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
+    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    : undefined;
+
+if (!admin.apps.length) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount!),
+    });
+    console.log("DEBUG: Firebase Admin SDK inicializado.");
+  } catch (e: any) {
+    console.error('DEBUG: Error al inicializar Firebase Admin SDK:', e.message);
+  }
+}
+
+const db = admin.firestore();
 
 const PublicProductSchema = z.object({
     id: z.string(),
@@ -42,17 +59,22 @@ const fetchPublicProductsFlow = ai.defineFlow(
     outputSchema: FetchPublicProductsOutputSchema,
   },
   async () => {
-    console.log("DEBUG: Iniciando fetchPublicProductsFlow.");
+    console.log("DEBUG: Iniciando fetchPublicProductsFlow con Admin SDK.");
     try {
-        const productsRef = collection(db, "products");
-        const q = query(productsRef, where("status", "==", "Publicado"));
-        const querySnapshot = await getDocs(q);
+        const productsRef = db.collection("products");
+        const q = productsRef.where("status", "==", "Publicado");
+        const querySnapshot = await q.get();
 
         console.log(`DEBUG: Documentos encontrados con status "Publicado": ${querySnapshot.docs.length}`);
 
-        const productsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => {
+        if (querySnapshot.empty) {
+            console.log("DEBUG: La consulta a Firestore no devolvió documentos.");
+            return [];
+        }
+
+        const productsData = querySnapshot.docs.map((doc) => {
             const data = doc.data();
-            return {
+            const product = {
                 id: doc.id,
                 name: data.name || "",
                 popular: data.popular || false,
@@ -64,13 +86,14 @@ const fetchPublicProductsFlow = ai.defineFlow(
                 currency: data.currency || "RD$",
                 status: data.status || "Borrador",
             };
+            return product;
         });
         
         console.log("DEBUG: Datos procesados para enviar al cliente:", JSON.stringify(productsData, null, 2));
         return productsData;
 
     } catch (error) {
-        console.error("DEBUG: Error en fetchPublicProductsFlow: ", error);
+        console.error("DEBUG: Error en fetchPublicProductsFlow con Admin SDK: ", error);
         return [];
     }
   }
