@@ -14,7 +14,6 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { CalendarClock } from 'lucide-react';
 
 export interface ScheduleInfo {
-    totalBalance: number;
     nextPaymentAmount: number;
     nextPaymentDate: string | null;
 }
@@ -54,7 +53,7 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
 
                 if (requestsSnapshot.empty) {
                     setSchedule([]);
-                    onScheduleCalculated({ totalBalance: 0, nextPaymentAmount: 0, nextPaymentDate: null });
+                    onScheduleCalculated({ nextPaymentAmount: 0, nextPaymentDate: null });
                     setLoading(false);
                     return;
                 }
@@ -66,19 +65,6 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
                 
                 let allUpcomingPayments: ScheduleItem[] = [];
                 
-                // --- CORRECT BALANCE CALCULATION ---
-                let totalAmountOwed = 0;
-                requestsSnapshot.docs.forEach(doc => {
-                    const data = doc.data();
-                    // totalPaid is the full amount the user will pay for that item (initial + installments)
-                    totalAmountOwed += data.totalPaid || 0; 
-                });
-
-                const totalAmountPaid = paymentsMade.reduce((acc, p) => acc + (p.amount || 0), 0);
-                const currentBalance = totalAmountOwed - totalAmountPaid;
-                // --- END OF CORRECT BALANCE CALCULATION ---
-
-
                 for (const requestDoc of requestsSnapshot.docs) {
                     const request = requestDoc.data();
                     const requestId = requestDoc.id;
@@ -92,8 +78,6 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
 
                     for (let i = 0; i < request.installments; i++) {
                          const installmentNumber = i + 1;
-                         // A payment is "paid" if it's not an initial payment. We assume initial payment is covered.
-                         // Let's refine this to check against actual payment count.
                          const paymentsMadeForInstallments = paymentsMade.filter(p => p.requestId === requestId && p.type !== 'Inicial').length;
 
                          const isPaid = i < paymentsMadeForInstallments;
@@ -118,7 +102,6 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
 
                 const nextPayment = allUpcomingPayments[0];
                 onScheduleCalculated({
-                    totalBalance: currentBalance > 0 ? currentBalance : 0,
                     nextPaymentAmount: nextPayment?.amount || 0,
                     nextPaymentDate: nextPayment?.paymentDate || null,
                 });
@@ -126,7 +109,7 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
 
             } catch (error) {
                 console.error("Error calculating payment schedule: ", error);
-                 onScheduleCalculated({ totalBalance: 0, nextPaymentAmount: 0, nextPaymentDate: null });
+                 onScheduleCalculated({ nextPaymentAmount: 0, nextPaymentDate: null });
             } finally {
                 setLoading(false);
             }
@@ -196,3 +179,5 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
         </Card>
     );
 }
+
+    

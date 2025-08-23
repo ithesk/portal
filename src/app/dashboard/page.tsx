@@ -44,6 +44,7 @@ export default function Dashboard() {
   const [lastPayment, setLastPayment] = useState<string | null>(null);
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [scheduleInfo, setScheduleInfo] = useState<ScheduleInfo | null>(null);
+  const [totalFinanced, setTotalFinanced] = useState(0);
 
 
   useEffect(() => {
@@ -69,12 +70,19 @@ export default function Dashboard() {
           setLastPayment(paymentData.amount ? `RD$ ${parseFloat(paymentData.amount).toFixed(2)}` : null);
         }
 
-        // Fetch recent activity from requests
+        // Fetch recent activity from requests and calculate total financed amount
         const requestsQuery = query(collection(db, "requests"), where("userId", "==", user.uid), orderBy("createdAt", "desc"), limit(3));
         const requestsSnapshot = await getDocs(requestsQuery);
+        
+        let financedSum = 0;
         const requestsData: Activity[] = requestsSnapshot.docs.map(doc => {
             const data = doc.data();
             const dateValue = data.createdAt?.toDate ? data.createdAt.toDate() : parseISO(data.createdAt);
+            
+            if(data.status === 'Aprobado' && data.financingAmount) {
+                financedSum += data.financingAmount;
+            }
+
             return {
                 id: doc.id,
                 description: data.type || "Solicitud de Financiamiento",
@@ -84,6 +92,8 @@ export default function Dashboard() {
                 amount: data.financingAmount ? `RD$ ${data.financingAmount.toFixed(2)}` : null,
             };
         });
+        setTotalFinanced(financedSum);
+
 
         // Fetch recent activity from payments
         const paymentsActivityQuery = query(collection(db, "payments"), where("userId", "==", user.uid), orderBy("date", "desc"), limit(3));
@@ -126,21 +136,6 @@ export default function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Saldo Actual</CardDescription>
-            {scheduleInfo === null ? (
-                <Skeleton className="h-10 w-3/4" />
-            ) : (
-                <CardTitle className="text-4xl">RD$ {scheduleInfo.totalBalance.toFixed(2)}</CardTitle>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs text-muted-foreground">
-                Total pendiente de pago
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
             <CardDescription>Próximo Pago</CardDescription>
             {scheduleInfo === null ? (
                 <Skeleton className="h-10 w-3/4" />
@@ -152,7 +147,18 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
-              {scheduleInfo?.nextPaymentDate ? `Vence el ${scheduleInfo.nextPaymentDate}` : '-'}
+              {scheduleInfo?.nextPaymentDate ? `Vence el ${scheduleInfo.nextPaymentDate}` : 'No tienes pagos pendientes'}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Monto Financiado</CardDescription>
+             <CardTitle className="text-4xl">RD$ {totalFinanced.toFixed(2)}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs text-muted-foreground">
+                Total sin intereses (Valor - Inicial)
             </div>
           </CardContent>
         </Card>
@@ -163,7 +169,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
-              {equipmentCount > 0 ? "Activos" : "-"}
+              {equipmentCount > 0 ? `Actualmente ${equipmentCount} equipo(s)` : "Sin equipos activos"}
             </div>
           </CardContent>
         </Card>
@@ -174,7 +180,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
-              -
+              Fecha del último pago recibido
             </div>
           </CardContent>
         </Card>
@@ -320,5 +326,7 @@ function DashboardSkeleton() {
         </div>
     );
 }
+
+    
 
     
