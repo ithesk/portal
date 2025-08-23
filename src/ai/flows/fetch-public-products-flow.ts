@@ -42,10 +42,13 @@ const fetchPublicProductsFlow = ai.defineFlow(
     outputSchema: FetchPublicProductsOutputSchema,
   },
   async () => {
+    console.log("DEBUG: Iniciando fetchPublicProductsFlow.");
     try {
         const productsRef = collection(db, "products");
         const q = query(productsRef, where("status", "==", "Publicado"));
         const querySnapshot = await getDocs(q);
+
+        console.log(`DEBUG: Documentos encontrados con status "Publicado": ${querySnapshot.docs.length}`);
 
         const productsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
@@ -62,10 +65,12 @@ const fetchPublicProductsFlow = ai.defineFlow(
                 status: data.status || "Borrador",
             };
         });
-
+        
+        console.log("DEBUG: Datos procesados para enviar al cliente:", JSON.stringify(productsData, null, 2));
         return productsData;
+
     } catch (error) {
-        console.error("Error in fetchPublicProductsFlow: ", error);
+        console.error("DEBUG: Error en fetchPublicProductsFlow: ", error);
         return [];
     }
   }
