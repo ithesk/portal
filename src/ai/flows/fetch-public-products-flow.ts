@@ -7,42 +7,10 @@
  * - PublicProduct - The interface for a public product.
  * - FetchPublicProductsOutput - The return type for the fetchPublicProducts function.
  */
-import 'dotenv/config';
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import * as admin from 'firebase-admin';
-
-// --- Firebase Admin SDK Initialization ---
-let db: admin.firestore.Firestore | null = null;
-
-function initializeFirebase() {
-    if (admin.apps.length === 0) {
-        console.log("DEBUG: No Firebase Admin app initialized. Initializing...");
-        try {
-            const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
-            if (!serviceAccountString) {
-                console.error("DEBUG: FIREBASE_SERVICE_ACCOUNT env var is not defined.");
-                throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable not set.");
-            }
-            const serviceAccount = JSON.parse(serviceAccountString);
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-            });
-            console.log("DEBUG: Firebase Admin SDK initialized successfully.");
-            db = admin.firestore();
-        } catch (e: any) {
-            console.error('DEBUG: Critical error initializing Firebase Admin SDK:', e.message);
-            // We throw here because the app cannot function without it.
-            throw e; 
-        }
-    } else {
-        console.log("DEBUG: Firebase Admin app already initialized.");
-        if (!db) {
-            db = admin.firestore();
-        }
-    }
-}
-
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 // --- Schema Definitions ---
 
@@ -79,16 +47,11 @@ const fetchPublicProductsFlow = ai.defineFlow(
     outputSchema: FetchPublicProductsOutputSchema,
   },
   async () => {
-    // Ensure Firebase is initialized before running the flow logic
-    if (!db) {
-      initializeFirebase();
-    }
-    
-    console.log("DEBUG: Iniciando fetchPublicProductsFlow con Admin SDK.");
+    console.log("DEBUG: Iniciando fetchPublicProductsFlow con Client SDK.");
     try {
-        const productsRef = db!.collection("products");
-        const q = productsRef.where("status", "==", "Publicado");
-        const querySnapshot = await q.get();
+        const productsRef = collection(db, "products");
+        const q = query(productsRef, where("status", "==", "Publicado"));
+        const querySnapshot = await getDocs(q);
 
         console.log(`DEBUG: Documentos encontrados con status "Publicado": ${querySnapshot.docs.length}`);
 
@@ -118,7 +81,7 @@ const fetchPublicProductsFlow = ai.defineFlow(
         return productsData;
 
     } catch (error) {
-        console.error("DEBUG: Error en fetchPublicProductsFlow con Admin SDK: ", error);
+        console.error("DEBUG: Error en fetchPublicProductsFlow con Client SDK: ", error);
         return [];
     }
   }

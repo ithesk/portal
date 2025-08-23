@@ -19,7 +19,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 // Using the 'alzadatos' database.
-const db = getFirestore(app);
+const db = getFirestore(app, 'alzadatos');
 const auth = getAuth(app);
 
 export { db, auth };
