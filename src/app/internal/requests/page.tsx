@@ -41,6 +41,8 @@ interface Request extends DocumentData {
   date: string;
   status: string;
   cedula: string;
+  itemType: string;
+  imei: string;
 }
 
 export default function RequestsPage() {
@@ -82,9 +84,7 @@ export default function RequestsPage() {
       const batch = writeBatch(db);
       const requestDocRef = doc(db, "requests", request.id);
 
-      batch.update(requestDocRef, { status });
-
-      // If approved, create the equipment record
+      // If approved, first check if user exists and then create the equipment record
       if (status === "Aprobado") {
         // 1. Find user by cedula
         const usersRef = collection(db, "users");
@@ -92,7 +92,7 @@ export default function RequestsPage() {
         const userSnapshot = await getDocs(userQuery);
 
         if (userSnapshot.empty) {
-          throw new Error(`No se encontró un usuario con la cédula ${request.cedula}. El cliente debe registrarse primero.`);
+          throw new Error(`No se encontró un usuario con la cédula ${request.cedula}. El cliente debe registrarse primero para poder aprobar la solicitud.`);
         }
         
         const userDoc = userSnapshot.docs[0];
@@ -103,19 +103,20 @@ export default function RequestsPage() {
         const newEquipmentRef = doc(collection(db, "equipment"));
         const equipmentData = {
             userId: userId,
-            name: request.itemType === 'phone' ? 'Teléfono' : 'Tablet', // Simple name for now
+            name: request.itemType === 'phone' ? 'Teléfono' : 'Tablet',
             status: "Financiado",
-            progress: 0, // Starts at 0%
-            imageUrl: "https://placehold.co/600x400.png", // Placeholder image
+            progress: 0,
+            imageUrl: "https://placehold.co/600x400.png",
             aiHint: request.itemType,
-            details: `Financiamiento aprobado el ${new Date().toLocaleDateString()}. IMEI: ${request.imei}`,
-            client: userName, // For internal view
+            details: `Financiamiento aprobado el ${new Date().toLocaleDateString()}. IMEI: ${request.imei || 'N/A'}`,
+            client: userName,
             createdAt: serverTimestamp(),
             requestId: request.id,
         };
         batch.set(newEquipmentRef, equipmentData);
       }
 
+      batch.update(requestDocRef, { status });
       await batch.commit();
 
       toast({
