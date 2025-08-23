@@ -51,29 +51,23 @@ export default function InternalRegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    console.log("Paso 1: Iniciando el proceso de registro para:", email);
+    
     try {
-      console.log("Paso 2: Intentando crear usuario en Firebase Authentication...");
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      console.log("Paso 3: Usuario creado exitosamente en Authentication. UID:", user.uid);
       
-      console.log("Paso 4: Intentando actualizar el perfil del usuario en Auth...");
       await updateProfile(user, { displayName: name });
-      console.log("Paso 5: Perfil de Auth actualizado.");
 
-      // Por defecto, los nuevos usuarios son 'Gestor'
       const userData = {
         name: name,
         email: email,
         role: "Gestor", 
-        lastLogin: new Date().toISOString().split('T')[0],
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
       };
       
-      console.log("Paso 6: Intentando escribir en Firestore en la ruta 'users/" + user.uid + "' con los datos:", userData);
       await setDoc(doc(db, "users", user.uid), userData);
       
-      console.log("Paso 7: ¡Éxito! Documento escrito en Firestore correctamente.");
       router.push('/internal/dashboard');
 
     } catch (error: any) {
@@ -84,7 +78,6 @@ export default function InternalRegisterPage() {
         description: `El error fue: ${error.message}`,
       });
     } finally {
-      console.log("Paso 8: Fin del proceso de registro (haya sido exitoso o no).");
       setLoading(false);
     }
   };

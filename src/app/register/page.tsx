@@ -15,7 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "lucide-react";
 
@@ -52,10 +53,21 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      if (userCredential.user) {
-        await updateProfile(userCredential.user, { displayName: name });
-      }
+      const user = userCredential.user;
+      
+      await updateProfile(user, { displayName: name });
+      
+      const userData = {
+        name: name,
+        email: email,
+        role: "Cliente", 
+        createdAt: new Date().toISOString(),
+      };
+      
+      await setDoc(doc(db, "users", user.uid), userData);
+      
       router.push('/dashboard');
+      
     } catch (error: any) {
        toast({
         variant: "destructive",
