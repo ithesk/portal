@@ -16,9 +16,9 @@ import * as admin from 'firebase-admin';
 // --- Firebase Admin SDK Initialization ---
 
 function initializeFirebaseAdmin() {
-    console.log("SERVER DEBUG: Checking Firebase Admin initialization status...");
+    // This function will only be called if there are no initialized apps.
+    // It's safe to call it multiple times.
     if (admin.apps.length > 0) {
-        console.log("SERVER DEBUG: Firebase Admin already initialized.");
         return;
     }
 
@@ -41,8 +41,6 @@ function initializeFirebaseAdmin() {
     }
 }
 
-// Call initialization logic right away
-initializeFirebaseAdmin();
 
 // --- Schema Definitions ---
 const FetchRequestsInputSchema = z.object({
@@ -75,6 +73,9 @@ const fetchRequestsFlow = ai.defineFlow(
     outputSchema: FetchRequestsOutputSchema,
   },
   async ({ userId }) => {
+    // GUARANTEE INITIALIZATION: Call this at the start of the flow execution.
+    initializeFirebaseAdmin();
+
     try {
         console.log(`SERVER DEBUG: fetchRequestsFlow started for userId: ${userId} using ADMIN SDK`);
         const db = admin.firestore();
