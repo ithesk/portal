@@ -18,14 +18,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { getDoc, doc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FileText } from "lucide-react";
-import { fetchRequestsForCedula, FetchRequestsOutput } from "@/ai/flows/fetch-requests-flow";
+import { fetchRequestsForUser, FetchRequestsOutput } from "@/ai/flows/fetch-requests-flow";
 
 
 export default function ClientRequestsPage() {
@@ -43,34 +42,8 @@ export default function ClientRequestsPage() {
 
       try {
         setLoading(true);
-        // Securely get the user's document by its direct path
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (!userDocSnap.exists()) {
-            setLoading(false);
-            toast({
-                variant: "destructive",
-                title: "Perfil no encontrado",
-                description: "No pudimos encontrar tu perfil de usuario.",
-            });
-            return;
-        }
-        
-        const cedula = userDocSnap.data()?.cedula;
-
-        if (!cedula) {
-            setLoading(false);
-            toast({
-                variant: "destructive",
-                title: "Cédula no encontrada",
-                description: "No se encontró tu número de cédula en tu perfil, no podemos cargar tus solicitudes.",
-            });
-            return;
-        }
-
-        // Then, call the secure Genkit flow to get requests
-        const requestsData = await fetchRequestsForCedula({ cedula });
+        // Call the secure Genkit flow with the user's ID
+        const requestsData = await fetchRequestsForUser({ userId: user.uid });
         setRequests(requestsData);
 
       } catch (error) {

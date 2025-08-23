@@ -3,20 +3,20 @@
 /**
  * @fileOverview A flow for securely fetching financing requests for a given user.
  *
- * - fetchRequestsForCedula - A function that returns all requests associated with a cedula.
- * - FetchRequestsInput - The input type for the fetchRequestsForCedula function.
- * - FetchRequestsOutput - The return type for the fetchRequestsForCedula function.
+ * - fetchRequestsForUser - A function that returns all requests associated with a user ID.
+ * - FetchRequestsInput - The input type for the fetchRequestsForUser function.
+ * - FetchRequestsOutput - The return type for the fetchRequestsForUser function.
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import {z} from 'zod';
+import { collection, getDocs, query, where, orderBy, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { format, parseISO } from "date-fns";
 
 
 const FetchRequestsInputSchema = z.object({
-  cedula: z.string().describe('The Cédula (national ID) of the user.'),
+  userId: z.string().describe('The user ID.'),
 });
 export type FetchRequestsInput = z.infer<typeof FetchRequestsInputSchema>;
 
@@ -32,7 +32,7 @@ const FetchRequestsOutputSchema = z.array(RequestSchema);
 export type FetchRequestsOutput = z.infer<typeof FetchRequestsOutputSchema>;
 
 
-export async function fetchRequestsForCedula(input: FetchRequestsInput): Promise<FetchRequestsOutput> {
+export async function fetchRequestsForUser(input: FetchRequestsInput): Promise<FetchRequestsOutput> {
   return fetchRequestsFlow(input);
 }
 
@@ -43,8 +43,24 @@ const fetchRequestsFlow = ai.defineFlow(
     inputSchema: FetchRequestsInputSchema,
     outputSchema: FetchRequestsOutputSchema,
   },
-  async ({ cedula }) => {
+  async ({ userId }) => {
     try {
+        // 1. Securely fetch user document on the server to get their cedula
+        const userDocRef = doc(db, 'users', userId);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (!userDocSnap.exists()) {
+            console.error(`User with ID ${userId} not found.`);
+            return [];
+        }
+
+        const cedula = userDocSnap.data()?.cedula;
+        if (!cedula) {
+            console.error(`Cedula not found for user with ID ${userId}.`);
+            return [];
+        }
+
+        // 2. Fetch requests using the obtained cedula
         const requestsRef = collection(db, "requests");
         const q = query(requestsRef, where("cedula", "==", cedula), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
@@ -55,21 +71,16 @@ const fetchRequestsFlow = ai.defineFlow(
             let dateStr: string;
 
             if (data.createdAt && data.createdAt instanceof Timestamp) {
-                // Handle Firestore Timestamp
                 dateStr = format(data.createdAt.toDate(), "yyyy-MM-dd");
             } else if (data.createdAt && typeof data.createdAt === 'string') {
-                // Handle ISO string dates
                 try {
                     dateStr = format(parseISO(data.createdAt), "yyyy-MM-dd");
                 } catch {
-                     // Fallback for non-standard string dates, or use a default
                      dateStr = format(new Date(), "yyyy-MM-dd");
                 }
             } else if (data.date && typeof data.date === 'string') {
-                // Fallback to the 'date' field if it exists
                 dateStr = data.date;
             } else {
-                 // Final fallback if no valid date is found
                 dateStr = format(new Date(), "yyyy-MM-dd");
             }
             
