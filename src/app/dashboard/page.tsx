@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { collection, query, where, getDocs, orderBy, limit, DocumentData } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit, DocumentData, doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 import {
@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, parseISO } from 'date-fns';
 import { PaymentSchedule, ScheduleInfo } from "@/components/shared/payment-schedule";
+import { PaymentInstructionsDialog } from "@/components/shared/payment-instructions-dialog";
 
 
 interface Activity {
@@ -36,9 +37,14 @@ interface Activity {
     amount: string | null;
 }
 
+interface UserProfile {
+    cedula: string;
+}
+
 export default function Dashboard() {
   const [user, userLoading] = useAuthState(auth);
   const [loading, setLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   const [equipmentCount, setEquipmentCount] = useState(0);
   const [lastPayment, setLastPayment] = useState<string | null>(null);
@@ -57,6 +63,14 @@ export default function Dashboard() {
       setLoading(true);
 
       try {
+        // Fetch user profile to get cedula
+        const userDocRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap.exists()) {
+            setUserProfile(userSnap.data() as UserProfile);
+        }
+
+
         // Fetch equipment count
         const equipmentQuery = query(collection(db, "equipment"), where("userId", "==", user.uid));
         const equipmentSnapshot = await getDocs(equipmentQuery);
@@ -134,23 +148,25 @@ export default function Dashboard() {
   return (
     <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Próximo Pago</CardDescription>
-            {scheduleInfo === null ? (
-                <Skeleton className="h-10 w-3/4" />
-            ) : (
-                <CardTitle className="text-4xl">
-                    {scheduleInfo.nextPaymentAmount > 0 ? `RD$ ${scheduleInfo.nextPaymentAmount.toFixed(2)}` : 'N/A'}
-                </CardTitle>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs text-muted-foreground">
-              {scheduleInfo?.nextPaymentDate ? `Vence el ${scheduleInfo.nextPaymentDate}` : 'No tienes pagos pendientes'}
-            </div>
-          </CardContent>
-        </Card>
+        <PaymentInstructionsDialog referenceCode={userProfile?.cedula}>
+            <Card className="cursor-pointer hover:border-primary">
+              <CardHeader className="pb-2">
+                <CardDescription>Próximo Pago</CardDescription>
+                {scheduleInfo === null ? (
+                    <Skeleton className="h-10 w-3/4" />
+                ) : (
+                    <CardTitle className="text-4xl">
+                        {scheduleInfo.nextPaymentAmount > 0 ? `RD$ ${scheduleInfo.nextPaymentAmount.toFixed(2)}` : 'N/A'}
+                    </CardTitle>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-muted-foreground">
+                  {scheduleInfo?.nextPaymentDate ? `Vence el ${scheduleInfo.nextPaymentDate}` : 'No tienes pagos pendientes'}
+                </div>
+              </CardContent>
+            </Card>
+        </PaymentInstructionsDialog>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Monto Financiado</CardDescription>
@@ -193,51 +209,53 @@ export default function Dashboard() {
               Un resumen de sus pagos y actividades recientes.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Descripción</TableHead>
-                  <TableHead className="hidden sm:table-cell">
-                    Tipo
-                  </TableHead>
-                  <TableHead className="hidden sm:table-cell">
-                    Estado
-                  </TableHead>
-                  <TableHead className="hidden md:table-cell">Fecha</TableHead>
-                  <TableHead className="text-right">Monto</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentActivity.length > 0 ? (
-                  recentActivity.map((activity) => (
-                    <TableRow key={activity.id}>
-                      <TableCell className="font-medium">{activity.description}</TableCell>
-                       <TableCell className="hidden sm:table-cell">
-                        {activity.type}
-                      </TableCell>
-                       <TableCell className="hidden sm:table-cell">
-                        <Badge variant={activity.status === "Aprobado" || activity.status === "Completado" ? "default" : "secondary"} className={activity.status === "Aprobado" || activity.status === "Completado" ? "bg-green-100 text-green-800" : ""}>
-                          {activity.status}
-                        </Badge>
-                      </TableCell>
-                       <TableCell className="hidden md:table-cell">
-                        {activity.date}
-                      </TableCell>
-                       <TableCell className="text-right">
-                        {activity.amount || "-"}
-                      </TableCell>
+          <CardContent className="flex-1 min-h-0">
+            <div className="relative w-full overflow-auto">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead className="hidden sm:table-cell">
+                        Tipo
+                    </TableHead>
+                    <TableHead className="hidden sm:table-cell">
+                        Estado
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell">Fecha</TableHead>
+                    <TableHead className="text-right">Monto</TableHead>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-10">
-                          No hay actividad reciente.
-                      </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                    {recentActivity.length > 0 ? (
+                    recentActivity.map((activity) => (
+                        <TableRow key={activity.id}>
+                        <TableCell className="font-medium">{activity.description}</TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                            {activity.type}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                            <Badge variant={activity.status === "Aprobado" || activity.status === "Completado" ? "default" : "secondary"} className={activity.status === "Aprobado" || activity.status === "Completado" ? "bg-green-100 text-green-800" : ""}>
+                            {activity.status}
+                            </Badge>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                            {activity.date}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            {activity.amount || "-"}
+                        </TableCell>
+                        </TableRow>
+                    ))
+                    ) : (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-10">
+                            No hay actividad reciente.
+                        </TableCell>
+                    </TableRow>
+                    )}
+                </TableBody>
+                </Table>
+            </div>
           </CardContent>
         </Card>
         {user && <PaymentSchedule userId={user.uid} onScheduleCalculated={setScheduleInfo} />}
