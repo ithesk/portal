@@ -11,9 +11,10 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import * as admin from 'firebase-admin';
+import 'dotenv/config'
 
 // --- Firebase Admin SDK Initialization ---
-let db: admin.firestore.Firestore;
+let db: admin.firestore.Firestore | null = null;
 
 function initializeFirebase() {
     if (admin.apps.length === 0) {
@@ -29,6 +30,7 @@ function initializeFirebase() {
                 credential: admin.credential.cert(serviceAccount),
             });
             console.log("DEBUG: Firebase Admin SDK initialized successfully.");
+            db = admin.firestore();
         } catch (e: any) {
             console.error('DEBUG: Critical error initializing Firebase Admin SDK:', e.message);
             // We throw here because the app cannot function without it.
@@ -36,12 +38,12 @@ function initializeFirebase() {
         }
     } else {
         console.log("DEBUG: Firebase Admin app already initialized.");
+        if (!db) {
+            db = admin.firestore();
+        }
     }
-    db = admin.firestore();
 }
 
-// Call initialization logic when the module is loaded.
-initializeFirebase();
 
 // --- Schema Definitions ---
 
@@ -78,9 +80,14 @@ const fetchPublicProductsFlow = ai.defineFlow(
     outputSchema: FetchPublicProductsOutputSchema,
   },
   async () => {
+    // Ensure Firebase is initialized before running the flow logic
+    if (!db) {
+      initializeFirebase();
+    }
+    
     console.log("DEBUG: Iniciando fetchPublicProductsFlow con Admin SDK.");
     try {
-        const productsRef = db.collection("products");
+        const productsRef = db!.collection("products");
         const q = productsRef.where("status", "==", "Publicado");
         const querySnapshot = await q.get();
 
