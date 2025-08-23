@@ -29,17 +29,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { collection, getDocs, query, orderBy, doc, updateDoc, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, updateDoc, writeBatch, where, serverTimestamp, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface Request {
+interface Request extends DocumentData {
   id: string;
   client: string;
   type: string;
   date: string;
   status: string;
+  cedula: string;
 }
 
 export default function RequestsPage() {
@@ -52,7 +53,7 @@ export default function RequestsPage() {
     try {
       setLoading(true);
       const requestsRef = collection(db, "requests");
-      const q = query(requestsRef, orderBy("date", "desc"));
+      const q = query(requestsRef, orderBy("createdAt", "desc"));
       const querySnapshot = await getDocs(q);
       const requestsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
         id: doc.id,
@@ -75,22 +76,59 @@ export default function RequestsPage() {
     fetchRequests();
   }, []);
 
-  const handleUpdateRequestStatus = async (id: string, status: "Aprobado" | "Rechazado") => {
-    setUpdatingId(id);
+  const handleUpdateRequestStatus = async (request: Request, status: "Aprobado" | "Rechazado") => {
+    setUpdatingId(request.id);
     try {
-      const requestDocRef = doc(db, "requests", id);
-      await updateDoc(requestDocRef, { status });
+      const batch = writeBatch(db);
+      const requestDocRef = doc(db, "requests", request.id);
+
+      batch.update(requestDocRef, { status });
+
+      // If approved, create the equipment record
+      if (status === "Aprobado") {
+        // 1. Find user by cedula
+        const usersRef = collection(db, "users");
+        const userQuery = query(usersRef, where("cedula", "==", request.cedula));
+        const userSnapshot = await getDocs(userQuery);
+
+        if (userSnapshot.empty) {
+          throw new Error(`No se encontró un usuario con la cédula ${request.cedula}. El cliente debe registrarse primero.`);
+        }
+        
+        const userDoc = userSnapshot.docs[0];
+        const userId = userDoc.id;
+        const userName = userDoc.data().name;
+
+        // 2. Create new equipment document
+        const newEquipmentRef = doc(collection(db, "equipment"));
+        const equipmentData = {
+            userId: userId,
+            name: request.itemType === 'phone' ? 'Teléfono' : 'Tablet', // Simple name for now
+            status: "Financiado",
+            progress: 0, // Starts at 0%
+            imageUrl: "https://placehold.co/600x400.png", // Placeholder image
+            aiHint: request.itemType,
+            details: `Financiamiento aprobado el ${new Date().toLocaleDateString()}. IMEI: ${request.imei}`,
+            client: userName, // For internal view
+            createdAt: serverTimestamp(),
+            requestId: request.id,
+        };
+        batch.set(newEquipmentRef, equipmentData);
+      }
+
+      await batch.commit();
+
       toast({
         title: "Solicitud Actualizada",
         description: `La solicitud ha sido marcada como ${status.toLowerCase()}.`,
       });
       fetchRequests(); // Refetch data to update the UI
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating request status: ", error);
        toast({
           variant: "destructive",
           title: "Error al actualizar",
-          description: "No se pudo actualizar el estado de la solicitud."
+          description: error.message || "No se pudo actualizar el estado de la solicitud."
       })
     } finally {
       setUpdatingId(null);
@@ -184,7 +222,7 @@ export default function RequestsPage() {
                           variant="outline" 
                           size="icon" 
                           className="h-8 w-8"
-                          onClick={() => handleUpdateRequestStatus(req.id, "Aprobado")}
+                          onClick={() => handleUpdateRequestStatus(req, "Aprobado")}
                           disabled={updatingId === req.id}
                         >
                           {updatingId === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -193,7 +231,7 @@ export default function RequestsPage() {
                           variant="destructive" 
                           size="icon" 
                           className="h-8 w-8"
-                          onClick={() => handleUpdateRequestStatus(req.id, "Rechazado")}
+                          onClick={() => handleUpdateRequestStatus(req, "Rechazado")}
                           disabled={updatingId === req.id}
                         >
                            {updatingId === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
