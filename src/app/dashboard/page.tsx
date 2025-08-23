@@ -187,7 +187,7 @@ export default function Dashboard() {
               Un resumen de sus pagos y actividades recientes.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 min-h-0">
+          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>

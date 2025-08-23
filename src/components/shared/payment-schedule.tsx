@@ -99,7 +99,15 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
                 // Calculate total balance
                 const totalPaid = paymentsMade.reduce((acc, p) => acc + (p.amount || 0), 0);
                 const initialPaymentsTotal = requestsSnapshot.docs.reduce((acc, doc) => acc + (doc.data().initialPayment || 0), 0);
-                const totalDebt = requestsSnapshot.docs.reduce((acc, doc) => acc + (doc.data().totalPaid || 0), 0);
+                
+                let totalDebt = 0;
+                requestsSnapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    // Use totalPaid from request if available, otherwise calculate
+                    const requestTotal = data.totalPaid ? data.totalPaid : (data.initialPayment || 0) + ((data.biweeklyPayment || 0) * (data.installments || 0));
+                    totalDebt += requestTotal;
+                });
+                
                 const currentBalance = totalDebt - initialPaymentsTotal - totalPaid;
 
 
@@ -134,7 +142,7 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
                     Tu calendario de pagos pendientes.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="flex-1 min-h-0">
+            <CardContent>
                 <Table>
                     <TableHeader>
                         <TableRow>
