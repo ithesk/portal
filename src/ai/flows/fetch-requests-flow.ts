@@ -7,14 +7,42 @@
  * - FetchRequestsInput - The input type for the fetchRequestsForUser function.
  * - FetchRequestsOutput - The return type for the fetchRequestsForUser function.
  */
-
+import 'dotenv/config';
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import { collection, getDocs, query, where, orderBy, Timestamp, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { format, parseISO } from "date-fns";
+import * as admin from 'firebase-admin';
 
+// --- Firebase Admin Initialization ---
+function initializeFirebase() {
+    if (!admin.apps.length) {
+        try {
+            console.log("DEBUG: No Firebase Admin app initialized. Initializing...");
+            const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
+            if (!serviceAccountString) {
+                console.error("DEBUG: FIREBASE_SERVICE_ACCOUNT env var is not defined.");
+                throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable not set.");
+            }
+            const serviceAccount = JSON.parse(serviceAccountString);
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+                databaseName: 'alzadatos',
+            });
+             console.log("DEBUG: Firebase Admin SDK Initialized Successfully.");
+        } catch (error: any) {
+            console.error("DEBUG: Critical error initializing Firebase Admin SDK:", error.message);
+            throw error; // Re-throw the error to fail fast
+        }
+    } else {
+        console.log("DEBUG: Firebase Admin app already initialized.");
+    }
+}
 
+initializeFirebase();
+
+const db = admin.firestore();
+
+// --- Schema Definitions ---
 const FetchRequestsInputSchema = z.object({
   userId: z.string().describe('The user ID.'),
 });
@@ -31,12 +59,12 @@ const RequestSchema = z.object({
 const FetchRequestsOutputSchema = z.array(RequestSchema);
 export type FetchRequestsOutput = z.infer<typeof FetchRequestsOutputSchema>;
 
-
+// --- Exported Function ---
 export async function fetchRequestsForUser(input: FetchRequestsInput): Promise<FetchRequestsOutput> {
   return fetchRequestsFlow(input);
 }
 
-
+// --- Genkit Flow Definition ---
 const fetchRequestsFlow = ai.defineFlow(
   {
     name: 'fetchRequestsFlow',
@@ -45,32 +73,36 @@ const fetchRequestsFlow = ai.defineFlow(
   },
   async ({ userId }) => {
     try {
+        console.log(`DEBUG: fetchRequestsFlow started for userId: ${userId}`);
         // 1. Securely fetch user document on the server to get their cedula
-        const userDocRef = doc(db, 'users', userId);
-        const userDocSnap = await getDoc(userDocRef);
+        const userDocRef = db.collection('users').doc(userId);
+        const userDocSnap = await userDocRef.get();
 
-        if (!userDocSnap.exists()) {
-            console.error(`User with ID ${userId} not found.`);
+        if (!userDocSnap.exists) {
+            console.error(`DEBUG: User with ID ${userId} not found.`);
             return [];
         }
 
         const cedula = userDocSnap.data()?.cedula;
         if (!cedula) {
-            console.error(`Cedula not found for user with ID ${userId}.`);
+            console.error(`DEBUG: Cedula not found for user with ID ${userId}.`);
             return [];
         }
+        console.log(`DEBUG: Found cedula ${cedula} for user ${userId}.`);
 
         // 2. Fetch requests using the obtained cedula
-        const requestsRef = collection(db, "requests");
-        const q = query(requestsRef, where("cedula", "==", cedula), orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
+        const requestsRef = db.collection("requests");
+        const q = requestsRef.where("cedula", "==", cedula).orderBy("createdAt", "desc");
+        const querySnapshot = await q.get();
+        
+        console.log(`DEBUG: Found ${querySnapshot.docs.length} requests for cedula ${cedula}.`);
         
         const requestsData = querySnapshot.docs.map((doc) => {
             const data = doc.data();
             
             let dateStr: string;
 
-            if (data.createdAt && data.createdAt instanceof Timestamp) {
+            if (data.createdAt && typeof data.createdAt.toDate === 'function') { // Check for Firestore Timestamp
                 dateStr = format(data.createdAt.toDate(), "yyyy-MM-dd");
             } else if (data.createdAt && typeof data.createdAt === 'string') {
                 try {
@@ -93,9 +125,11 @@ const fetchRequestsFlow = ai.defineFlow(
             };
         });
 
+        console.log("DEBUG: Processed requests data:", requestsData);
         return requestsData;
+
     } catch (error) {
-        console.error("Error in fetchRequestsFlow: ", error);
+        console.error("DEBUG: Error in fetchRequestsFlow: ", error);
         return [];
     }
   }

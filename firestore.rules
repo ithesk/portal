@@ -1,65 +1,69 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check if a user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // Helper function to check if the user is the owner of the document
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
     
-    // Helper function to check if the user is an Admin or Gestor
-    function isInternalUser() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // --- Public Access Rules ---
+    // --- PUBLIC ACCESS ---
+    // Anyone can read from the products collection.
+    // This is for the public-facing storefront.
     match /products/{productId} {
-      allow read: if true;
+      allow get, list: if true;
     }
 
-    // --- Client/User Access Rules ---
-
-    // Users can read/update their own user document.
-    // New users can be created during registration.
+    // --- CLIENT (Authenticated Users) ACCESS ---
+    
+    // An authenticated user can read and update their OWN user document.
     match /users/{userId} {
-      allow read, update: if isOwner(userId);
-      allow create: if isAuthenticated();
+      allow get, update: if request.auth.uid == userId;
+      // Anyone can create a user document (for registration).
+      allow create: if request.auth.uid != null;
     }
 
-    // Users can read their own equipment.
-    // Internal users can manage all equipment records.
+    // An authenticated user can read equipment documents where their userId matches.
     match /equipment/{equipmentId} {
-      allow read: if isOwner(resource.data.userId) || isInternalUser();
-      allow create, update: if isInternalUser();
+      allow get, list: if request.auth.uid == resource.data.userId;
+    }
+
+    // An authenticated user can read payments where their userId matches.
+    match /payments/{paymentId} {
+      allow get, list: if request.auth.uid == resource.data.userId;
+    }
+
+    // Requests are handled by a secure backend flow, so client access is denied.
+    match /requests/{requestId} {
+      allow read, write: if false; 
+    }
+
+    // --- INTERNAL (Admin/Gestor) ACCESS ---
+    // A function to check if the requesting user has an Admin or Gestor role.
+    function isInternalUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
+    }
+
+    // Internal users can manage products.
+    match /products/{productId} {
+      allow write: if isInternalUser();
     }
     
-    // Users can read their own payments.
-    // Internal users can manage all payments.
-    match /payments/{paymentId} {
-      allow read: if isOwner(resource.data.userId) || isInternalUser();
-       allow create, update: if isInternalUser();
+    // Internal users can manage clients (all fields in the users collection).
+    match /users/{userId} {
+      allow list, delete: if isInternalUser();
     }
-
-    // This is more complex. A user needs to see requests matching their cedula,
-    // which is stored in their user document. This rule structure allows that.
-    // Internal users can manage all requests.
-    match /requests/{requestId} {
-      allow read: if (isAuthenticated() && resource.data.cedula == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.cedula) || isInternalUser();
-      allow create, update: if isInternalUser();
+    
+    // Internal users can manage all requests, equipment, and payments.
+    match /requests/{docId} {
+      allow read, write: if isInternalUser();
     }
-
-    // --- Default Deny ---
-    // Make sure to have a default deny rule if not explicitly covered above.
-    // This is implicitly handled by Firestore, but being explicit can be clearer.
-    // match /{document=**} {
-    //   allow read, write: if false;
-    // }
+     match /equipment/{docId} {
+      allow read, write: if isInternalUser();
+    }
+     match /payments/{docId} {
+      allow read, write: if isInternalUser();
+    }
   }
 }
