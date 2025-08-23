@@ -19,11 +19,14 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Search } from "lucide-react";
+import { PlusCircle, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { collection, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { collection, getDocs, QueryDocumentSnapshot, DocumentData, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 interface Client {
   id: string;
@@ -34,20 +37,130 @@ interface Client {
   equipmentCount: number;
 }
 
+function NewClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const { toast } = useToast();
+    const [formData, setFormData] = useState({
+        name: "",
+        email: "",
+        phone: "",
+        cedula: ""
+    });
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { id, value } = e.target;
+        setFormData(prev => ({ ...prev, [id]: value }));
+    };
+
+    const handleSubmit = async () => {
+        setLoading(true);
+        if (!formData.name || !formData.email || !formData.cedula) {
+            toast({
+                variant: "destructive",
+                title: "Campos requeridos",
+                description: "Por favor, completa nombre, correo y cédula."
+            });
+            setLoading(false);
+            return;
+        }
+
+        try {
+            await addDoc(collection(db, "users"), {
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone,
+                cedula: formData.cedula,
+                role: "Cliente",
+                status: "Activo",
+                since: new Date().toLocaleDateString('es-DO'),
+                createdAt: serverTimestamp()
+            });
+
+            toast({
+                title: "Cliente Creado",
+                description: "El nuevo cliente ha sido agregado exitosamente."
+            });
+            onClientAdded();
+            setOpen(false);
+            setFormData({ name: "", email: "", phone: "", cedula: "" });
+        } catch (error: any) {
+            console.error("Error creating client: ", error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Hubo un problema al crear el cliente: " + error.message
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Nuevo Cliente
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Agregar Nuevo Cliente</DialogTitle>
+                    <DialogDescription>
+                        Ingresa los datos del nuevo cliente. El cliente podrá usar su correo para iniciar sesión en el futuro (después de establecer una contraseña).
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">Nombre</Label>
+                        <Input id="name" value={formData.name} onChange={handleInputChange} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="email" className="text-right">Correo</Label>
+                        <Input id="email" type="email" value={formData.email} onChange={handleInputChange} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="cedula" className="text-right">Cédula</Label>
+                        <Input id="cedula" value={formData.cedula} onChange={handleInputChange} className="col-span-3" />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="phone" className="text-right">Teléfono</Label>
+                        <Input id="phone" type="tel" value={formData.phone} onChange={handleInputChange} className="col-span-3" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" onClick={handleSubmit} disabled={loading}>
+                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Guardar Cliente
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchClients = async () => {
+  const fetchClients = async () => {
       try {
         setLoading(true);
-        const querySnapshot = await getDocs(collection(db, "clients"));
-        const clientsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Client));
-        setClients(clientsData);
+        const querySnapshot = await getDocs(collection(db, "users"));
+        const clientsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                name: data.name,
+                contact: data.email,
+                status: data.status || 'Activo',
+                since: data.since || 'N/A',
+                equipmentCount: 0, // Placeholder
+                ...data,
+            }
+        }).filter(user => user.role === 'Cliente'); // Only show clients
+        setClients(clientsData as Client[]);
       } catch (error) {
         console.error("Error fetching clients: ", error);
       } finally {
@@ -55,6 +168,7 @@ export default function ClientsPage() {
       }
     };
 
+  useEffect(() => {
     fetchClients();
   }, []);
 
@@ -68,10 +182,7 @@ export default function ClientsPage() {
                 Gestiona la información y el estado de los clientes.
                 </CardDescription>
             </div>
-            <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Nuevo Cliente
-            </Button>
+            <NewClientDialog onClientAdded={fetchClients} />
         </div>
         <div className="relative mt-4">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
