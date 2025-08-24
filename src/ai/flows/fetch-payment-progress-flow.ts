@@ -40,6 +40,7 @@ const fetchPaymentProgressFlow = ai.defineFlow(
     outputSchema: PaymentProgressOutputSchema,
   },
   async ({ userId }) => {
+    console.log(`PAYMENT_PROGRESS_FLOW: Starting for userId: ${userId}`);
     if (!userId) {
         console.error("PAYMENT_PROGRESS_FLOW: No userId provided.");
         return { installmentsPaid: 0, totalInstallments: 0 };
@@ -52,29 +53,36 @@ const fetchPaymentProgressFlow = ai.defineFlow(
         const requestsSnapshot = await getDocs(activeRequestsQuery);
 
         if (requestsSnapshot.empty) {
+            console.log(`PAYMENT_PROGRESS_FLOW: No active requests found for userId: ${userId}`);
             return { installmentsPaid: 0, totalInstallments: 0 };
         }
 
-        const requestIds = requestsSnapshot.docs.map(doc => doc.id);
-        
-        let totalInstallments = 0;
-        requestsSnapshot.docs.forEach(doc => {
-            totalInstallments += doc.data().installments || 0;
-        });
-
-        // 2. Get all payments for those active requests
-        // Firestore 'in' query is limited to 30 elements. If a user can have more, this needs batching.
+        // 2. Get all payments for the user to avoid multiple queries
         const paymentsRef = collection(db, "payments");
-        const paymentsQuery = query(paymentsRef, where("requestId", "in", requestIds));
+        const paymentsQuery = query(paymentsRef, where("userId", "==", userId));
         const paymentsSnapshot = await getDocs(paymentsQuery);
+        const allUserPayments = paymentsSnapshot.docs.map(doc => doc.data());
 
-        // We only count payments that are not the initial one, as they correspond to installments.
-        // A robust way would be to add a `type: 'installment'` field to payment documents.
-        // For now, we assume all payments in the collection are for installments.
-        const installmentsPaid = paymentsSnapshot.size;
+        let totalInstallments = 0;
+        let totalInstallmentsPaid = 0;
+
+        // 3. Iterate through each active request and calculate progress
+        for (const requestDoc of requestsSnapshot.docs) {
+            const requestData = requestDoc.data();
+            const requestId = requestDoc.id;
+
+            // Sum up total installments from all active financings
+            totalInstallments += requestData.installments || 0;
+
+            // Count payments specifically for this request
+            const paymentsForThisRequest = allUserPayments.filter(p => p.requestId === requestId).length;
+            totalInstallmentsPaid += paymentsForThisRequest;
+        }
+
+        console.log(`PAYMENT_PROGRESS_FLOW: Calculated for userId: ${userId} -> Paid: ${totalInstallmentsPaid}, Total: ${totalInstallments}`);
         
         return {
-            installmentsPaid,
+            installmentsPaid: totalInstallmentsPaid,
             totalInstallments,
         };
 

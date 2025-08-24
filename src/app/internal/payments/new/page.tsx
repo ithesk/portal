@@ -139,7 +139,7 @@ function NewPaymentForm() {
                 date: paymentDate,
                 status: "Completado",
                 createdAt: serverTimestamp(),
-                requestId: equipmentData?.requestId // Store requestId on payment for easier querying
+                requestId: equipmentData?.requestId || null // Store requestId on payment for easier querying
             });
 
             // 2. Calculate and update progress
@@ -158,7 +158,7 @@ function NewPaymentForm() {
                     // We add +1 to include the payment we are currently processing
                     const paymentsMade = paymentsSnapshot.size + 1;
                     
-                    const progress = Math.round((paymentsMade / totalInstallments) * 100);
+                    const progress = totalInstallments > 0 ? Math.round((paymentsMade / totalInstallments) * 100) : 0;
 
                     const equipmentRef = doc(db, "equipment", selectedEquipment);
                     batch.update(equipmentRef, { progress: progress });
@@ -281,5 +281,3 @@ export default function NewPaymentPage() {
         </Suspense>
     );
 }
-
-    
