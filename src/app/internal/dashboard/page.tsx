@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Wrench, DollarSign, Activity, PlusCircle, AlertCircle, FileText } from "lucide-react";
+import { Users, Wrench, DollarSign, Activity, PlusCircle, AlertCircle, FileText, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { collection, getDocs, query, where, orderBy, limit, Timestamp } from "firebase/firestore";
@@ -182,12 +182,20 @@ export default function InternalDashboard() {
                   Un resumen de las últimas solicitudes creadas en la plataforma.
                 </CardDescription>
               </div>
-              <Button asChild>
-                <Link href="/internal/requests/new">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Nueva Solicitud
-                </Link>
-              </Button>
+              <div className="flex items-center gap-2">
+                 <Button asChild variant="outline">
+                    <Link href="/internal/calculator">
+                        <Calculator className="mr-2 h-4 w-4" />
+                        Calculadora
+                    </Link>
+                </Button>
+                <Button asChild>
+                    <Link href="/internal/requests/new">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Nueva Solicitud
+                    </Link>
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
