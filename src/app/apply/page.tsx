@@ -53,7 +53,7 @@ function ApplyForm() {
      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
         <div className="mb-6 text-center">
              <div className="inline-block mx-auto p-3 rounded-full mb-4">
-                <LogoIcon className="h-8 w-8 text-primary" />
+                <LogoIcon className="h-12 w-12" />
             </div>
             <h1 className="text-3xl font-bold">Solicitud de Financiamiento</h1>
             <p className="text-muted-foreground">Estás a pocos pasos de obtener tu equipo: <strong>{product || 'un equipo'}</strong></p>
@@ -160,7 +160,7 @@ function ApplyPageFallback() {
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
             <div className="mb-6 text-center">
-                <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
+                <div className="inline-block mx-auto p-3 rounded-full mb-4">
                     <LogoIcon className="h-8 w-8" />
                 </div>
                 <h1 className="text-3xl font-bold">Solicitud de Financiamiento</h1>

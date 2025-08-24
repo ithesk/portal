@@ -69,7 +69,7 @@ export default function InternalRegisterPage() {
       <Card className="mx-auto max-w-sm w-full">
         <CardHeader className="text-center">
             <div className="inline-block mx-auto p-3 rounded-full mb-4">
-                <LogoIcon className="h-8 w-8 text-primary" />
+                <LogoIcon className="h-12 w-12" />
             </div>
           <CardTitle className="text-2xl font-bold">Crear Cuenta Interna</CardTitle>
           <CardDescription>
