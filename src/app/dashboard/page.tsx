@@ -26,7 +26,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format, parseISO } from 'date-fns';
 import { PaymentSchedule, ScheduleInfo } from "@/components/shared/payment-schedule";
 import { PaymentInstructionsDialog } from "@/components/shared/payment-instructions-dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { fetchPaymentProgress } from "@/ai/flows/fetch-payment-progress-flow";
+import { Progress } from "@/components/ui/progress";
 
 
 interface Activity {
@@ -42,10 +43,9 @@ interface UserProfile {
     cedula: string;
 }
 
-interface FinanceTotals {
-    totalEquipmentValue: number;
-    totalInitialPayment: number;
-    totalInstallmentsPaid: number;
+interface PaymentProgress {
+    installmentsPaid: number;
+    totalInstallments: number;
 }
 
 
@@ -58,10 +58,9 @@ export default function Dashboard() {
   const [lastPayment, setLastPayment] = useState<string | null>(null);
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [scheduleInfo, setScheduleInfo] = useState<ScheduleInfo | null>(null);
-  const [financeTotals, setFinanceTotals] = useState<FinanceTotals>({
-    totalEquipmentValue: 0,
-    totalInitialPayment: 0,
-    totalInstallmentsPaid: 0,
+  const [paymentProgress, setPaymentProgress] = useState<PaymentProgress>({
+      installmentsPaid: 0,
+      totalInstallments: 0,
   });
 
 
@@ -114,30 +113,13 @@ export default function Dashboard() {
             };
         }).slice(0,3);
 
-        // Fetch APPROVED requests for finance totals
-        const approvedRequestsQuery = query(collection(db, "requests"), where("userId", "==", user.uid), where("status", "==", "Aprobado"));
-        const approvedRequestsSnapshot = await getDocs(approvedRequestsQuery);
 
-        let equipmentValue = 0;
-        let initialPayment = 0;
-        
-        approvedRequestsSnapshot.docs.forEach(doc => {
-            const data = doc.data();
-            if(data.itemValue) equipmentValue += data.itemValue;
-            if(data.initialPayment) initialPayment += data.initialPayment;
-        });
-
-        // Fetch recent activity from payments and sum total paid for active financings
+        // Fetch recent activity from payments
         const paymentsActivityQuery = query(collection(db, "payments"), where("userId", "==", user.uid), orderBy("date", "desc"));
         const paymentsActivitySnapshot = await getDocs(paymentsActivityQuery);
         
-        let installmentsPaid = 0;
         const paymentsData: Activity[] = paymentsActivitySnapshot.docs.map(doc => {
             const data = doc.data();
-            // Only add to installmentsPaid if the request was approved
-             if (approvedRequestsSnapshot.docs.some(reqDoc => reqDoc.id === data.requestId)) {
-                if(data.amount) installmentsPaid += parseFloat(data.amount);
-            }
             return {
                 id: doc.id,
                 description: `Pago para ${data.equipment}`,
@@ -148,11 +130,6 @@ export default function Dashboard() {
             };
         }).slice(0,3);
 
-        setFinanceTotals({
-            totalEquipmentValue: equipmentValue,
-            totalInitialPayment: initialPayment,
-            totalInstallmentsPaid: installmentsPaid,
-        });
         
         // Combine, sort, and slice activity
         const combinedActivity = [...requestsData, ...paymentsData]
@@ -160,6 +137,11 @@ export default function Dashboard() {
             .slice(0, 5);
         
         setRecentActivity(combinedActivity);
+
+        // Fetch payment progress from server flow
+        const progressData = await fetchPaymentProgress({ userId: user.uid });
+        setPaymentProgress(progressData);
+
 
       } catch (error) {
         console.error("Error fetching dashboard data: ", error);
@@ -171,12 +153,9 @@ export default function Dashboard() {
     fetchData();
   }, [user, userLoading]);
 
-  const { totalEquipmentValue, totalInitialPayment, totalInstallmentsPaid } = financeTotals;
-  const totalPaid = totalInitialPayment + totalInstallmentsPaid;
-  const remainingBalance = totalEquipmentValue - totalPaid;
-  
-  const initialPaymentPercentage = totalEquipmentValue > 0 ? (totalInitialPayment / totalEquipmentValue) * 100 : 0;
-  const installmentsPaidPercentage = totalEquipmentValue > 0 ? (totalInstallmentsPaid / totalEquipmentValue) * 100 : 0;
+  const progressPercentage = paymentProgress.totalInstallments > 0
+    ? (paymentProgress.installmentsPaid / paymentProgress.totalInstallments) * 100
+    : 0;
 
 
   if (loading) {
@@ -207,40 +186,16 @@ export default function Dashboard() {
         </PaymentInstructionsDialog>
         <Card>
             <CardHeader className="pb-2">
-                <CardDescription>Resumen de Financiamiento Activo</CardDescription>
+                <CardDescription>Progreso de Pagos</CardDescription>
                 <CardTitle className="text-2xl">
-                    RD$ {totalPaid.toFixed(2)}
-                    <span className="text-base font-normal text-muted-foreground"> / {totalEquipmentValue.toFixed(2)}</span>
+                    {paymentProgress.installmentsPaid} de {paymentProgress.totalInstallments}
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <div className="w-full bg-secondary rounded-full h-3 flex overflow-hidden">
-                                <div className="bg-blue-500 h-full" style={{ width: `${initialPaymentPercentage}%` }}></div>
-                                <div className="bg-green-500 h-full" style={{ width: `${installmentsPaidPercentage}%` }}></div>
-                            </div>
-                        </TooltipTrigger>
-                        <TooltipContent className="w-64">
-                           <div className="space-y-2">
-                                <p className="font-bold text-center">Desglose de Pagos</p>
-                                <div className="flex justify-between text-sm">
-                                    <span className="flex items-center"><div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>Inicial:</span>
-                                    <span>RD$ {totalInitialPayment.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                     <span className="flex items-center"><div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>Cuotas Pagadas:</span>
-                                    <span>RD$ {totalInstallmentsPaid.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm border-t pt-2 mt-2">
-                                    <span className="text-muted-foreground">Saldo Pendiente:</span>
-                                    <span>RD$ {remainingBalance > 0 ? remainingBalance.toFixed(2) : '0.00'}</span>
-                                </div>
-                           </div>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
+                 <Progress value={progressPercentage} className="w-full h-3 mb-2" />
+                 <div className="text-xs text-muted-foreground">
+                   {paymentProgress.totalInstallments > 0 ? 'Cuotas pagadas de financiamientos activos' : 'Sin cuotas pendientes'}
+                </div>
             </CardContent>
         </Card>
         <Card>
@@ -409,5 +364,3 @@ function DashboardSkeleton() {
         </div>
     );
 }
-
-    
