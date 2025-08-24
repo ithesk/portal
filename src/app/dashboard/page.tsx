@@ -83,8 +83,8 @@ export default function Dashboard() {
         }
 
 
-        // Fetch equipment count
-        const equipmentQuery = query(collection(db, "equipment"), where("userId", "==", user.uid));
+        // Fetch equipment count for active financings
+        const equipmentQuery = query(collection(db, "equipment"), where("userId", "==", user.uid), where("status", "==", "Financiado"));
         const equipmentSnapshot = await getDocs(equipmentQuery);
         setEquipmentCount(equipmentSnapshot.size);
 
@@ -96,22 +96,14 @@ export default function Dashboard() {
           setLastPayment(paymentData.amount ? `RD$ ${parseFloat(paymentData.amount).toFixed(2)}` : null);
         }
 
-        // Fetch recent activity from requests and calculate finance totals
-        const requestsQuery = query(collection(db, "requests"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
-        const requestsSnapshot = await getDocs(requestsQuery);
+        // Fetch recent activity from ALL requests for the activity feed
+        const allRequestsQuery = query(collection(db, "requests"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
+        const allRequestsSnapshot = await getDocs(allRequestsQuery);
         
-        let equipmentValue = 0;
-        let initialPayment = 0;
-
-        const requestsData: Activity[] = requestsSnapshot.docs.map(doc => {
+        const requestsData: Activity[] = allRequestsSnapshot.docs.map(doc => {
             const data = doc.data();
             const dateValue = data.createdAt?.toDate ? data.createdAt.toDate() : parseISO(data.createdAt);
             
-            if(data.status === 'Aprobado') {
-                if(data.itemValue) equipmentValue += data.itemValue;
-                if(data.initialPayment) initialPayment += data.initialPayment;
-            }
-
             return {
                 id: doc.id,
                 description: data.type || "Solicitud de Financiamiento",
@@ -122,15 +114,30 @@ export default function Dashboard() {
             };
         }).slice(0,3);
 
+        // Fetch APPROVED requests for finance totals
+        const approvedRequestsQuery = query(collection(db, "requests"), where("userId", "==", user.uid), where("status", "==", "Aprobado"));
+        const approvedRequestsSnapshot = await getDocs(approvedRequestsQuery);
 
-        // Fetch recent activity from payments and sum total paid
+        let equipmentValue = 0;
+        let initialPayment = 0;
+        
+        approvedRequestsSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if(data.itemValue) equipmentValue += data.itemValue;
+            if(data.initialPayment) initialPayment += data.initialPayment;
+        });
+
+        // Fetch recent activity from payments and sum total paid for active financings
         const paymentsActivityQuery = query(collection(db, "payments"), where("userId", "==", user.uid), orderBy("date", "desc"));
         const paymentsActivitySnapshot = await getDocs(paymentsActivityQuery);
         
         let installmentsPaid = 0;
         const paymentsData: Activity[] = paymentsActivitySnapshot.docs.map(doc => {
             const data = doc.data();
-            if(data.amount) installmentsPaid += parseFloat(data.amount);
+            // Only add to installmentsPaid if the request was approved
+             if (approvedRequestsSnapshot.docs.some(reqDoc => reqDoc.id === data.requestId)) {
+                if(data.amount) installmentsPaid += parseFloat(data.amount);
+            }
             return {
                 id: doc.id,
                 description: `Pago para ${data.equipment}`,
@@ -200,7 +207,7 @@ export default function Dashboard() {
         </PaymentInstructionsDialog>
         <Card>
             <CardHeader className="pb-2">
-                <CardDescription>Resumen de Financiamiento</CardDescription>
+                <CardDescription>Resumen de Financiamiento Activo</CardDescription>
                 <CardTitle className="text-2xl">
                     RD$ {totalPaid.toFixed(2)}
                     <span className="text-base font-normal text-muted-foreground"> / {totalEquipmentValue.toFixed(2)}</span>
@@ -243,7 +250,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
-              {equipmentCount > 0 ? `Actualmente ${equipmentCount} equipo(s)` : "Sin equipos activos"}
+              {equipmentCount > 0 ? `${equipmentCount} equipo(s) activo(s)` : "Sin equipos activos"}
             </div>
           </CardContent>
         </Card>
@@ -402,9 +409,5 @@ function DashboardSkeleton() {
         </div>
     );
 }
-
-    
-
-    
 
     
