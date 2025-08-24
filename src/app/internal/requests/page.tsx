@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, Filter, PlusCircle, Loader2 } from "lucide-react";
+import { Check, X, Filter, PlusCircle, Loader2, MoreHorizontal, Eye } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -197,7 +197,7 @@ export default function RequestsPage() {
                   <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                   <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-32" /></TableCell>
-                  <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : (
@@ -219,28 +219,43 @@ export default function RequestsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    {req.status === "Pendiente de Aprobación" && (
-                      <div className="flex gap-2 justify-end">
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          onClick={() => handleUpdateRequestStatus(req, "Aprobado")}
-                          disabled={updatingId === req.id}
-                        >
-                          {updatingId === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Toggle menu</span>
                         </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          onClick={() => handleUpdateRequestStatus(req, "Rechazado")}
-                          disabled={updatingId === req.id}
-                        >
-                           {updatingId === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                        <DropdownMenuItem asChild>
+                           <Link href={`/internal/requests/${req.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                Ver Detalles
+                           </Link>
+                        </DropdownMenuItem>
+                        {req.status === "Pendiente de Aprobación" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleUpdateRequestStatus(req, "Aprobado")}
+                              disabled={updatingId === req.id}
+                            >
+                              {updatingId === req.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                              Aprobar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => handleUpdateRequestStatus(req, "Rechazado")}
+                              disabled={updatingId === req.id}
+                            >
+                               {updatingId === req.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+                              Rechazar
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
