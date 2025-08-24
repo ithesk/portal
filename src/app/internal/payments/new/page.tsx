@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { collection, getDocs, query, where, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, addDoc, serverTimestamp, doc, getDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from 'date-fns';
@@ -44,6 +44,7 @@ interface Equipment {
     id: string;
     name: string;
     userId: string;
+    requestId?: string; // Add requestId to the interface
 }
 
 function NewPaymentForm() {
@@ -121,22 +122,53 @@ function NewPaymentForm() {
         }
         setLoading(true);
         try {
+            const batch = writeBatch(db);
+            
+            // 1. Create payment document
             const clientName = clients.find(c => c.id === selectedClient)?.name;
-            const equipmentName = equipments.find(eq => eq.id === selectedEquipment)?.name;
+            const equipmentData = equipments.find(eq => eq.id === selectedEquipment);
 
-            await addDoc(collection(db, "payments"), {
+            const newPaymentRef = doc(collection(db, "payments"));
+            batch.set(newPaymentRef, {
                 userId: selectedClient,
                 equipmentId: selectedEquipment,
                 client: clientName,
-                equipment: equipmentName,
+                equipment: equipmentData?.name,
                 amount: parseFloat(amount),
                 method,
                 date: paymentDate,
                 status: "Completado",
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
+                requestId: equipmentData?.requestId // Store requestId on payment for easier querying
             });
 
-            toast({ title: "Pago Registrado", description: "El pago ha sido registrado exitosamente." });
+            // 2. Calculate and update progress
+            if (equipmentData?.requestId) {
+                const requestRef = doc(db, "requests", equipmentData.requestId);
+                const requestSnap = await getDoc(requestRef);
+
+                if (requestSnap.exists()) {
+                    const requestData = requestSnap.data();
+                    const totalInstallments = requestData.installments;
+
+                    // Query payments for this specific request
+                    const paymentsQuery = query(collection(db, "payments"), where("requestId", "==", equipmentData.requestId));
+                    const paymentsSnapshot = await getDocs(paymentsQuery);
+                    
+                    // We add +1 to include the payment we are currently processing
+                    const paymentsMade = paymentsSnapshot.size + 1;
+                    
+                    const progress = Math.round((paymentsMade / totalInstallments) * 100);
+
+                    const equipmentRef = doc(db, "equipment", selectedEquipment);
+                    batch.update(equipmentRef, { progress: progress });
+                }
+            }
+            
+            // 3. Commit batch
+            await batch.commit();
+
+            toast({ title: "Pago Registrado", description: "El pago ha sido registrado y el progreso del equipo actualizado." });
             router.push("/internal/payments");
 
         } catch (error: any) {
