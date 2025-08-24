@@ -64,7 +64,7 @@ export default function InternalDashboard() {
             getDocs(usersQuery),
             getDocs(equipmentQuery),
             getDocs(requestsQuery),
-            getDocs(paymentsSnapshot),
+            getDocs(paymentsQuery),
         ]);
 
         const monthlyIncome = paymentsSnapshot.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
