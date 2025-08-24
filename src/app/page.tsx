@@ -13,22 +13,10 @@ import { fetchPublicProducts, PublicProduct } from "@/ai/flows/fetch-public-prod
 
 
 const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    {...props}
-  >
-    <path
-      d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-    />
-    <circle cx="12" cy="12" r="2" fill="currentColor" />
-  </svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+        <path d="M19 5C15.866 5 13 7.68629 13 11V13C13 16.3137 15.866 19 19 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        <circle cx="9" cy="12" r="2" fill="currentColor"/>
+    </svg>
 );
 
 
