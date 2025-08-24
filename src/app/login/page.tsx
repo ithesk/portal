@@ -12,13 +12,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "lucide-react";
-
-const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-        <path d="M19 5C15.866 5 13 7.68629 13 11V13C13 16.3137 15.866 19 19 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="9" cy="12" r="2" fill="currentColor"/>
-    </svg>
-);
+import { LogoIcon } from "@/components/shared/logo";
 
 
 export default function LoginPage() {
@@ -50,7 +44,7 @@ export default function LoginPage() {
       <Card className="mx-auto max-w-sm w-full">
         <CardHeader className="text-center">
           <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
-             <AlzaIcon className="h-8 w-8" />
+             <LogoIcon className="h-8 w-8" />
           </div>
           <CardTitle className="text-2xl font-bold">Alza</CardTitle>
           <CardDescription>

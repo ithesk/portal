@@ -10,14 +10,7 @@ import { ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchPublicProducts, PublicProduct } from "@/ai/flows/fetch-public-products-flow";
-
-
-const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-        <path d="M19 5C15.866 5 13 7.68629 13 11V13C13 16.3137 15.866 19 19 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="9" cy="12" r="2" fill="currentColor"/>
-    </svg>
-);
+import { LogoIcon } from "@/components/shared/logo";
 
 
 export default function StorePage() {
@@ -47,7 +40,7 @@ export default function StorePage() {
     <div className="flex min-h-screen w-full flex-col items-center bg-muted/40 p-4">
       <div className="my-8 text-center">
          <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
-            <AlzaIcon className="h-8 w-8" />
+            <LogoIcon className="h-8 w-8" />
         </div>
         <h1 className="text-4xl font-bold">Elige tu Equipo</h1>
         <p className="text-muted-foreground text-lg mt-2">Financiamiento fácil y rápido con Alza.</p>

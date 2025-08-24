@@ -27,14 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-
-
-const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-        <path d="M19 5C15.866 5 13 7.68629 13 11V13C13 16.3137 15.866 19 19 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="9" cy="12" r="2" fill="currentColor"/>
-    </svg>
-);
+import { LogoIcon } from "@/components/shared/logo";
 
 
 const steps = [
@@ -60,7 +53,7 @@ function ApplyForm() {
      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
         <div className="mb-6 text-center">
              <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
-                <AlzaIcon className="h-8 w-8" />
+                <LogoIcon className="h-8 w-8" />
             </div>
             <h1 className="text-3xl font-bold">Solicitud de Financiamiento</h1>
             <p className="text-muted-foreground">Estás a pocos pasos de obtener tu equipo: <strong>{product || 'un equipo'}</strong></p>
@@ -168,7 +161,7 @@ function ApplyPageFallback() {
         <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
             <div className="mb-6 text-center">
                 <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
-                    <AlzaIcon className="h-8 w-8" />
+                    <LogoIcon className="h-8 w-8" />
                 </div>
                 <h1 className="text-3xl font-bold">Solicitud de Financiamiento</h1>
                 <Skeleton className="h-6 w-64 mt-2 mx-auto" />

@@ -35,13 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
-const AlzaIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-        <path d="M19 5C15.866 5 13 7.68629 13 11V13C13 16.3137 15.866 19 19 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="9" cy="12" r="2" fill="currentColor"/>
-    </svg>
-);
+import { LogoIcon } from "@/components/shared/logo";
 
 
 export default function DashboardLayout({
@@ -88,7 +82,7 @@ export default function DashboardLayout({
             href="/dashboard"
             className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
           >
-            <AlzaIcon className="h-4 w-4 transition-all group-hover:scale-110" />
+            <LogoIcon className="h-4 w-4 transition-all group-hover:scale-110" />
             <span className="sr-only">Alza</span>
           </Link>
           <TooltipProvider>
@@ -128,7 +122,7 @@ export default function DashboardLayout({
                   href="/dashboard"
                   className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
                 >
-                  <AlzaIcon className="h-5 w-5 transition-all group-hover:scale-110" />
+                  <LogoIcon className="h-5 w-5 transition-all group-hover:scale-110" />
                   <span className="sr-only">Alza</span>
                 </Link>
                 {navItems.map((item) => (
