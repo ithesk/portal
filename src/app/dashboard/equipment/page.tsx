@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { collection, getDocs, query, where, QueryDocumentSnapshot, DocumentData, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,7 +29,6 @@ interface Equipment {
   imageUrl: string;
   aiHint: string;
   details: string;
-  requestId: string;
 }
 
 export default function EquipmentPage() {
@@ -51,34 +50,12 @@ export default function EquipmentPage() {
         const q = query(collection(db, "equipment"), where("userId", "==", user.uid));
         const querySnapshot = await getDocs(q);
 
-        const equipmentPromises = querySnapshot.docs.map(async (docSnap: QueryDocumentSnapshot<DocumentData>) => {
-            const equipmentData = { id: docSnap.id, ...docSnap.data() } as Equipment;
-            
-            // Fetch the original request to get financing details
-            const requestRef = doc(db, "requests", equipmentData.requestId);
-            const requestSnap = await getDoc(requestRef);
-
-            // Fetch payments for this specific equipment
-            const paymentsQuery = query(collection(db, "payments"), where("equipmentId", "==", equipmentData.id));
-            const paymentsSnapshot = await getDocs(paymentsQuery);
-            const paymentsCount = paymentsSnapshot.size;
-
-            let progress = 0;
-            if (requestSnap.exists()) {
-                const requestData = requestSnap.data();
-                const totalInstallments = requestData.installments || 0;
-                if (totalInstallments > 0) {
-                    progress = Math.round((paymentsCount / totalInstallments) * 100);
-                }
-            }
-
-            return {
-              ...equipmentData,
-              progress,
-            };
+        const equipmentData = querySnapshot.docs.map((docSnap: QueryDocumentSnapshot<DocumentData>) => {
+            return { 
+                id: docSnap.id, 
+                ...docSnap.data() 
+            } as Equipment;
         });
-
-        const equipmentData = await Promise.all(equipmentPromises);
 
         setEquipment(equipmentData);
       } catch (error) {
