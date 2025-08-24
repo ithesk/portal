@@ -11,7 +11,6 @@ import {
     FileText,
     Calculator,
     Smartphone,
-    Badge,
     Calendar,
     Pen,
     Loader2,
@@ -24,6 +23,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { doc, getDoc, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -216,3 +217,4 @@ function RequestDetailsSkeleton() {
     );
 }
 
+    
