@@ -19,17 +19,26 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Search } from "lucide-react";
+import { PlusCircle, Search, MoreHorizontal, DollarSign } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { collection, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
 
 interface Equipment {
   id: string;
   name: string;
   client: string;
   status: string;
+  userId: string;
 }
 
 export default function InternalEquipmentPage() {
@@ -83,7 +92,8 @@ export default function InternalEquipmentPage() {
               <TableHead>ID Equipo</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Cliente Asignado</TableHead>
-              <TableHead className="text-right">Estado</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -93,16 +103,17 @@ export default function InternalEquipmentPage() {
                   <TableCell className="font-medium"><Skeleton className="h-5 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                  <TableCell className="text-right"><Skeleton className="h-6 w-24 ml-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : (
               equipment.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.id}</TableCell>
+                  <TableCell className="font-medium">{item.id.substring(0,8)}...</TableCell>
                   <TableCell>{item.name}</TableCell>
                   <TableCell>{item.client}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell>
                     <Badge
                       variant={
                         item.status === "Pagado" ? "default" 
@@ -113,6 +124,33 @@ export default function InternalEquipmentPage() {
                       {item.status}
                     </Badge>
                   </TableCell>
+                   <TableCell className="text-right">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                            >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/internal/payments?equipmentId=${item.id}`}>
+                                    <DollarSign className="mr-2 h-4 w-4" /> Ver Pagos
+                                </Link>
+                            </DropdownMenuItem>
+                             <DropdownMenuItem asChild>
+                                <Link href={`/internal/payments/new?equipmentId=${item.id}&userId=${item.userId}`}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Registrar Pago
+                                </Link>
+                            </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
                 </TableRow>
               ))
             )}

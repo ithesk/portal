@@ -20,6 +20,7 @@ import {
   Loader,
   UserCog,
   Calculator,
+  DollarSign,
 } from "lucide-react";
 
 import {
@@ -67,6 +68,7 @@ export default function InternalLayout({
     { href: "/internal/requests", icon: FileText, label: "Solicitudes" },
     { href: "/internal/clients", icon: Users, label: "Clientes" },
     { href: "/internal/equipment", icon: Wrench, label: "Equipos" },
+    { href: "/internal/payments", icon: DollarSign, label: "Pagos" },
     { href: "/internal/products", icon: Package, label: "Productos" },
     { href: "/internal/calculator", icon: Calculator, label: "Calculadora" },
     { href: "/internal/users", icon: UserCog, label: "Usuarios" },
