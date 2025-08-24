@@ -37,12 +37,13 @@ import { format } from 'date-fns';
 interface Client {
     id: string;
     name: string;
+    cedula: string;
 }
 
 interface Equipment {
     id: string;
     name: string;
-    client: string;
+    userId: string;
 }
 
 function NewPaymentForm() {
@@ -69,7 +70,7 @@ function NewPaymentForm() {
             try {
                 // Fetch Clients
                 const usersSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "Cliente")));
-                const clientsData = usersSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name })) as Client[];
+                const clientsData = usersSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name, cedula: doc.data().cedula })) as Client[];
                 setClients(clientsData);
 
                 // Fetch Equipment
@@ -191,7 +192,7 @@ function NewPaymentForm() {
                                 <SelectValue placeholder="Selecciona un cliente" />
                             </SelectTrigger>
                             <SelectContent>
-                                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.cedula})</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
@@ -248,3 +249,5 @@ export default function NewPaymentPage() {
         </Suspense>
     );
 }
+
+    
