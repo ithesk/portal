@@ -43,8 +43,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
       <Card className="mx-auto max-w-sm w-full">
         <CardHeader className="text-center">
-          <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
-             <LogoIcon className="h-8 w-8" />
+          <div className="inline-block mx-auto p-3 rounded-full mb-4">
+             <LogoIcon className="h-8 w-8 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold">Alza</CardTitle>
           <CardDescription>

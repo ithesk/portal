@@ -52,8 +52,8 @@ function ApplyForm() {
   return (
      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
         <div className="mb-6 text-center">
-             <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
-                <LogoIcon className="h-8 w-8" />
+             <div className="inline-block mx-auto p-3 rounded-full mb-4">
+                <LogoIcon className="h-8 w-8 text-primary" />
             </div>
             <h1 className="text-3xl font-bold">Solicitud de Financiamiento</h1>
             <p className="text-muted-foreground">Estás a pocos pasos de obtener tu equipo: <strong>{product || 'un equipo'}</strong></p>

@@ -39,8 +39,8 @@ export default function StorePage() {
   return (
     <div className="flex min-h-screen w-full flex-col items-center bg-muted/40 p-4">
       <div className="my-8 text-center">
-         <div className="inline-block mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
-            <LogoIcon className="h-8 w-8" />
+         <div className="inline-block mx-auto p-3 rounded-full mb-4">
+            <LogoIcon className="h-8 w-8 text-primary" />
         </div>
         <h1 className="text-4xl font-bold">Elige tu Equipo</h1>
         <p className="text-muted-foreground text-lg mt-2">Financiamiento fácil y rápido con Alza.</p>
