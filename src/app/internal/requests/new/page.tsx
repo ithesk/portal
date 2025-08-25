@@ -19,6 +19,7 @@ import {
   Search,
   UserPlus,
   UserCheck,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,14 +48,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { verifyIdentity } from "@/ai/flows/verify-identity-flow";
 
 
 const steps = [
   { id: 1, title: "Información del Cliente" },
-  { id: 2, title: "Detalles del Financiamiento" },
-  { id: 3, title: "Enlace MDM" },
-  { id: 4, title: "Contrato y Firma" },
+  { id: 2, title: "Verificación de Identidad" },
+  { id: 3, title: "Detalles del Financiamiento" },
+  { id: 4, title: "Enlace MDM" },
+  { id: 5, title: "Contrato y Firma" },
 ];
 
 interface Client {
@@ -70,10 +72,11 @@ export default function NewRequestPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [verifyingClient, setVerifyingClient] = useState(false);
+  const [verifyingIdentity, setVerifyingIdentity] = useState(false);
 
   const [currentStep, setCurrentStep] = useState(1);
   
-  // Step 1
+  // Step 1: Client Info
   const [cedulaInput, setCedulaInput] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isNewClient, setIsNewClient] = useState(false);
@@ -81,18 +84,27 @@ export default function NewRequestPage() {
   const [newClientEmail, setNewClientEmail] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
 
+  // Step 2: Identity Verification
+  const [idImage, setIdImage] = useState<File | null>(null);
+  const [faceImage, setFaceImage] = useState<File | null>(null);
+  const [idImageUrl, setIdImageUrl] = useState<string | null>(null);
+  const [faceImageUrl, setFaceImageUrl] = useState<string | null>(null);
+  const [verificationResult, setVerificationResult] = useState<any>(null);
+  const idImageRef = useRef<HTMLInputElement>(null);
+  const faceImageRef = useRef<HTMLInputElement>(null);
 
-  // Step 2
+
+  // Step 3
   const [itemType, setItemType] = useState<string>("");
   const [itemValue, setItemValue] = useState(12500);
   const [initialPercentage, setInitialPercentage] = useState(40);
   const [installments, setInstallments] = useState(6);
   const [requestDate] = useState(new Date());
 
-  // Step 3
+  // Step 4
   const [imei, setImei] = useState("");
 
-  // Step 4
+  // Step 5
   const sigPad = useRef<SignatureCanvas>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
 
@@ -135,6 +147,55 @@ export default function NewRequestPage() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (file: File | null) => void, urlSetter: (url: string | null) => void) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setter(file);
+      urlSetter(URL.createObjectURL(file));
+    }
+  };
+
+  const fileToDataUri = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+  }
+
+  const handleIdentityVerification = async () => {
+    if (!idImage || !faceImage || !cedulaInput) {
+        toast({ variant: "destructive", title: "Faltan datos", description: "Cédula, foto de ID y selfie son requeridos." });
+        return;
+    }
+    setVerifyingIdentity(true);
+    setVerificationResult(null);
+    try {
+        const idImageDataUri = await fileToDataUri(idImage);
+        const faceImageDataUri = await fileToDataUri(faceImage);
+
+        const result = await verifyIdentity({
+            cedula: cedulaInput,
+            id_image: idImageDataUri,
+            face_image: faceImageDataUri,
+        });
+
+        setVerificationResult(result);
+
+        if (result.success) {
+            toast({ title: "Verificación Exitosa", description: `Similitud de rostro: ${(result.data.face_similarity * 100).toFixed(2)}%` });
+        } else {
+             toast({ variant: "destructive", title: "Verificación Fallida", description: result.message });
+        }
+
+    } catch (error: any) {
+        toast({ variant: "destructive", title: "Error en la API", description: error.message });
+    } finally {
+        setVerifyingIdentity(false);
+    }
+  };
+
 
   const paymentDates = Array.from({ length: installments }, (_, i) => {
     const date = new Date(requestDate);
@@ -171,6 +232,14 @@ export default function NewRequestPage() {
         }
     }
 
+    if (currentStep === 2) {
+        if (!verificationResult?.success) {
+            toast({ variant: "destructive", title: "Verificación Requerida", description: "La identidad del cliente debe ser verificada exitosamente para continuar." });
+            return;
+        }
+    }
+
+
     if (currentStep !== steps.length) {
         nextStep();
         return; 
@@ -191,7 +260,6 @@ export default function NewRequestPage() {
     try {
         let finalClient = selectedClient;
 
-        // Create new client if needed
         if (isNewClient) {
             const newClientData = {
                 name: newClientName,
@@ -203,8 +271,6 @@ export default function NewRequestPage() {
                 since: new Date().toLocaleDateString('es-DO'),
                 createdAt: new Date().toISOString(),
             };
-            // We use the cedula as the document ID for new clients for simplicity in this flow,
-            // though using Firebase Auth UID is generally better.
             const newClientRef = doc(db, "users", cedulaInput);
             await setDoc(newClientRef, newClientData);
             finalClient = { id: newClientRef.id, ...newClientData };
@@ -236,6 +302,7 @@ export default function NewRequestPage() {
             date: format(requestDate, "yyyy-MM-dd"),
             createdAt: serverTimestamp(),
             type: `Financiamiento de ${itemType}`,
+            verificationData: verificationResult,
         });
 
         toast({
@@ -335,8 +402,75 @@ export default function NewRequestPage() {
                 )}
               </div>
             )}
-
+            
             {currentStep === 2 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
+                <div className="space-y-4">
+                  <CardTitle>Carga de Documentos</CardTitle>
+                  <CardDescription>
+                    Sube una foto de la cédula del cliente y una selfie para la verificación biométrica.
+                  </CardDescription>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="id-image">Foto de la Cédula (Frente)</Label>
+                     <Input id="id-image" type="file" accept="image/*" ref={idImageRef} onChange={(e) => handleFileChange(e, setIdImage, setIdImageUrl)} className="hidden" />
+                    <Button variant="outline" className="w-full" type="button" onClick={() => idImageRef.current?.click()}>
+                      <Camera className="mr-2" /> {idImage ? idImage.name : "Subir o Tomar Foto"}
+                    </Button>
+                    {idImageUrl && <img src={idImageUrl} alt="Preview de Cédula" className="mt-2 rounded-md border max-h-32" />}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="face-image">Selfie del Cliente</Label>
+                    <Input id="face-image" type="file" accept="image/*" ref={faceImageRef} onChange={(e) => handleFileChange(e, setFaceImage, setFaceImageUrl)} className="hidden" />
+                    <Button variant="outline" className="w-full" type="button" onClick={() => faceImageRef.current?.click()}>
+                      <Camera className="mr-2" /> {faceImage ? faceImage.name : "Subir o Tomar Foto"}
+                    </Button>
+                     {faceImageUrl && <img src={faceImageUrl} alt="Preview de Selfie" className="mt-2 rounded-md border max-h-32" />}
+                  </div>
+                  
+                  <Button type="button" onClick={handleIdentityVerification} disabled={verifyingIdentity || !idImage || !faceImage} className="w-full">
+                    {verifyingIdentity ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4 mr-2" />}
+                    Verificar Identidad
+                  </Button>
+                </div>
+                 <div className="space-y-4">
+                    <CardTitle>Resultado de Verificación</CardTitle>
+                    <CardDescription>
+                        El resultado de la API de verificación aparecerá aquí.
+                    </CardDescription>
+                    {verifyingIdentity ? (
+                        <div className="flex justify-center items-center h-40">
+                             <Loader2 className="h-8 w-8 animate-spin text-primary"/>
+                        </div>
+                    ) : verificationResult ? (
+                        <Card className={`w-full ${verificationResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                             <CardHeader>
+                                <CardTitle className={`flex items-center ${verificationResult.success ? 'text-green-800' : 'text-red-800'}`}>
+                                    {verificationResult.success ? <CheckCircle className="mr-2"/> : <Info className="mr-2"/>}
+                                    {verificationResult.success ? "Verificación Exitosa" : "Verificación Fallida"}
+                                </CardTitle>
+                             </CardHeader>
+                            <CardContent className={`text-sm ${verificationResult.success ? 'text-green-900' : 'text-red-900'}`}>
+                                <p><b>Mensaje:</b> {verificationResult.message}</p>
+                                {verificationResult.data?.face_similarity && (
+                                    <p><b>Similitud Facial:</b> {(verificationResult.data.face_similarity * 100).toFixed(2)}%</p>
+                                )}
+                                {verificationResult.data?.document_number && (
+                                     <p><b>Cédula en doc:</b> {verificationResult.data.document_number}</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ) : (
+                         <div className="flex justify-center items-center h-40 rounded-lg border-dashed border-2">
+                            <p className="text-muted-foreground">Esperando verificación...</p>
+                        </div>
+                    )}
+                 </div>
+              </div>
+            )}
+
+            {currentStep === 3 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
                 <div className="space-y-4">
                   <CardTitle>Detalles del Artículo</CardTitle>
@@ -448,7 +582,7 @@ export default function NewRequestPage() {
               </div>
             )}
             
-            {currentStep === 3 && (
+            {currentStep === 4 && (
               <div className="flex flex-col items-center justify-center text-center space-y-4 pt-6">
                   <Smartphone className="h-12 w-12 text-primary" />
                   <CardTitle>Enlace con Sistema MDM</CardTitle>
@@ -465,7 +599,7 @@ export default function NewRequestPage() {
               </div>
             )}
 
-            {currentStep === 4 && (
+            {currentStep === 5 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
                 <div>
                   <CardTitle className="flex items-center mb-4">
