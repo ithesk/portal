@@ -10,7 +10,7 @@ import { Loader2, Camera, CheckCircle, AlertTriangle } from "lucide-react";
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { runIdentityCheck } from "@/ai/flows/run-identity-check-flow";
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { LogoIcon } from "@/components/shared/logo";
 
 
@@ -98,15 +98,21 @@ export default function VerifyPage() {
                 status: 'pending-verification'
             });
 
-            // 3. Trigger server-side verification flow
-            await runIdentityCheck({ verificationId: verificationId as string });
+            // 3. Trigger server-side verification via Cloud Function
+            const functions = getFunctions();
+            // Ensure you use the correct region if your function is not in us-central1
+            // const functions = getFunctions(getApp(), 'your-region'); 
+            const runIdentityCheck = httpsCallable(functions, 'runIdentityCheck');
+            const result = await runIdentityCheck({ verificationId: verificationId as string });
             
+            console.log("Cloud Function result:", result);
             setStep('completed');
             toast({ title: "¡Gracias!", description: "Tu verificación ha sido enviada. Puedes cerrar esta ventana." });
             
         } catch (error: any) {
-            console.error(error);
-            toast({ variant: "destructive", title: "Error", description: "No se pudo enviar tu selfie." });
+            console.error("Error in handleConfirmSelfie:", error);
+            const errorMessage = error.message || "No se pudo enviar tu selfie.";
+            toast({ variant: "destructive", title: "Error", description: errorMessage });
             setStep('error');
         } finally {
             setLoading(false);
@@ -193,7 +199,7 @@ export default function VerifyPage() {
                            <AlertTriangle className="h-16 w-16" />
                            <h2 className="text-2xl font-bold">Ocurrió un Error</h2>
                            <p className="text-muted-foreground">No se pudo completar el proceso. Por favor, intenta de nuevo o contacta al gestor.</p>
-                             <Button onClick={stopCamera}>Cerrar</Button>
+                             <Button onClick={() => setStep('initial')}>Intentar de nuevo</Button>
                         </div>
                     )}
 
