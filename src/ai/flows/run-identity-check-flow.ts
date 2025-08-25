@@ -9,7 +9,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 
@@ -47,6 +47,10 @@ const runIdentityCheckFlow = ai.defineFlow(
 
     if (!apiKey) {
       console.error("ID_CHECK_FLOW: Missing VERIFICATION_API_KEY environment variable.");
+      await updateDoc(doc(db, "verifications", verificationId), {
+          status: 'failed',
+          error: 'Server configuration is incomplete.',
+      });
       return { success: false, message: "Server configuration is incomplete." };
     }
     
@@ -87,7 +91,7 @@ const runIdentityCheckFlow = ai.defineFlow(
         });
         
         const responseData = await response.json();
-        console.log("ID_CHECK_FLOW: API Response Status:", response.status);
+        console.log("ID_CHECK_FLOW: API Response Status:", response.status, "Body:", responseData);
 
         // 4. Update Firestore with the result
         if (!response.ok) {
@@ -99,7 +103,7 @@ const runIdentityCheckFlow = ai.defineFlow(
             return { success: false, message: responseData.detail || `API Error: ${response.statusText}`};
         }
         
-        // On success, update the user profile as well if verification passed
+        // 5. On success, update the user profile as well if verification passed
         if (responseData.verification_passed) {
             const userDocRef = doc(db, "users", responseData.document_info.cedula);
             const userSnap = await getDoc(userDocRef);
@@ -114,7 +118,13 @@ const runIdentityCheckFlow = ai.defineFlow(
             if (userSnap.exists()) {
                 await updateDoc(userDocRef, profileData);
             } else {
-                 await updateDoc(userDocRef, { ...profileData, role: 'Cliente', status: 'Activo', createdAt: serverTimestamp() }, { merge: true });
+                 await setDoc(userDocRef, { 
+                     ...profileData, 
+                     role: 'Cliente', 
+                     status: 'Activo', 
+                     since: new Date().toLocaleDateString('es-DO'), 
+                     createdAt: serverTimestamp() 
+                 });
             }
         }
         
