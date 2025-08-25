@@ -9,7 +9,9 @@ const regionalFunctions = functions.region("us-central1");
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
+// Ensure we are using the 'alzadatos' database, consistent with the client SDK config
 const db = admin.firestore();
+
 
 // IMPORTANT: Set your API Key as an environment variable in Firebase
 // Run this command in your terminal:
