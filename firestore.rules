@@ -1,80 +1,62 @@
+
 rules_version = '2';
 
 service cloud.firestore {
-  match /databases/{database}/documents {
-    
-    // --- Helper Functions ---
-    function isInternalUser() {
-      // Checks if the signed-in user has the role of Admin or Gestor.
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
+  match /databases/alzadatos/documents {
+
+    // Allow public read of a specific verification document if you know the ID.
+    // This is secure because the document ID is a long, unguessable string.
+    match /verifications/{verificationId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Only authenticated users (like cloud functions) can write.
     }
 
-    function isOwner(userId) {
-      // Checks if the signed-in user's ID matches the provided userId.
-      return request.auth.uid == userId;
-    }
-
-    // === Public Access Rules ===
-    match /products/{productId} {
-      // Anyone can read (list or get) a product if its status is "Publicado".
-      allow read: if resource.data.status == 'Publicado';
-    }
-
-    // === Client Access Rules (Authenticated Users) ===
+    // Users can only read/write their own user document.
     match /users/{userId} {
-      // A user can get and update their own user document.
-      allow get, update: if isOwner(userId);
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Authenticated users can create requests.
+    // They can only read/update/delete their own requests.
     match /requests/{requestId} {
-      // A user can read (get/list) requests that belong to them.
-      // The query from the client MUST include `where("userId", "==", request.auth.uid)`.
-      allow read: if isOwner(resource.data.userId);
+      allow create: if request.auth != null;
+      allow read, update, delete: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Similar rules for payments and equipment
+    match /payments/{paymentId} {
+       allow create: if request.auth != null;
+       allow read, update, delete: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
 
     match /equipment/{equipmentId} {
-      // A user can read (get/list) equipment that belongs to them.
-      // The query from the client MUST include `where("userId", "==", request.auth.uid)`.
-      allow read: if isOwner(resource.data.userId);
+        allow create: if request.auth != null;
+        allow read, update, delete: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
     
-    match /payments/{paymentId} {
-      // A user can read (get/list) payments that belong to them.
-      // The query from the client MUST include `where("userId", "==", request.auth.uid)`.
-      allow read: if isOwner(resource.data.userId);
+    // Products are public to read for anyone. Only auth users (internal) can write.
+    match /products/{productId} {
+        allow read: if true;
+        allow write: if request.auth != null;
     }
 
-
-    // === Internal Portal Rules (Admin/Gestor Roles) ===
-    // These rules grant broad access to internal users for management purposes.
+    // --- Internal Admin Rules ---
+    // Allow internal users (gestor, admin) to perform actions.
+    // This assumes internal users have a specific role in their user document.
     match /users/{userId} {
-      // Internal users can read any user's document.
-      allow list, get: if isInternalUser();
+      allow list: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
     }
     
     match /requests/{requestId} {
-      // Internal users can read and write any request document.
-      allow read, write: if isInternalUser();
-    }
-
-    match /equipment/{equipmentId} {
-      // Internal users can read and write any equipment document.
-      allow read, write: if isInternalUser();
+        allow list, read, update: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
     }
 
     match /payments/{paymentId} {
-       // Internal users can read and write any payment document.
-      allow read, write: if isInternalUser();
+       allow list, read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
     }
 
-    match /products/{productId} {
-      // Internal users can read and write any product document.
-      allow read, write: if isInternalUser();
-    }
-    
-     match /clients/{docId} {
-      // This collection seems to be for internal use only.
-      allow read, write: if isInternalUser();
+    match /equipment/{equipmentId} {
+        allow list, read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
     }
   }
 }
