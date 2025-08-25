@@ -42,6 +42,7 @@ const runIdentityCheckFlow = ai.defineFlow(
     outputSchema: RunIdentityCheckOutputSchema,
   },
   async ({ verificationId }) => {
+    console.log(`ID_CHECK_FLOW: Starting verification for ID: ${verificationId}`);
     const apiKey = process.env.VERIFICATION_API_KEY;
     const apiUrl = "http://93.127.132.230:8000/verify";
 
@@ -58,17 +59,20 @@ const runIdentityCheckFlow = ai.defineFlow(
 
     try {
         // 1. Get the verification data from Firestore
+        console.log("ID_CHECK_FLOW: Fetching verification document from Firestore...");
         const docSnap = await getDoc(verificationRef);
         if (!docSnap.exists()) {
             throw new Error(`Verification document with ID ${verificationId} not found.`);
         }
         const verificationData = docSnap.data();
+        console.log("ID_CHECK_FLOW: Verification document found. Status: ", verificationData.status);
         
         if (verificationData.status !== 'pending-verification') {
              throw new Error(`Verification document is not in the correct state. Status: ${verificationData.status}`);
         }
 
         // 2. Prepare data for the external API
+        console.log("ID_CHECK_FLOW: Preparing data for external API call...");
         const formData = new FormData();
         formData.append('cedula', verificationData.cedula);
         
@@ -84,17 +88,19 @@ const runIdentityCheckFlow = ai.defineFlow(
         formData.append('api_key', apiKey);
       
         // 3. Call external API
-        console.log("ID_CHECK_FLOW: Calling external API for verificationId:", verificationId);
+        console.log(`ID_CHECK_FLOW: Calling external API at ${apiUrl} for verificationId: ${verificationId}`);
         const response = await fetch(apiUrl, {
             method: 'POST',
             body: formData,
         });
         
         const responseData = await response.json();
-        console.log("ID_CHECK_FLOW: API Response Status:", response.status, "Body:", responseData);
+        console.log("ID_CHECK_FLOW: API Response Status:", response.status);
+        console.log("ID_CHECK_FLOW: API Response Body:", JSON.stringify(responseData, null, 2));
 
         // 4. Update Firestore with the result
         if (!response.ok) {
+            console.error("ID_CHECK_FLOW: API call failed.");
             await updateDoc(verificationRef, {
                 status: 'failed',
                 apiResponse: responseData,
@@ -105,6 +111,7 @@ const runIdentityCheckFlow = ai.defineFlow(
         
         // 5. On success, update the user profile as well if verification passed
         if (responseData.verification_passed) {
+            console.log("ID_CHECK_FLOW: Verification passed. Updating user profile...");
             const userDocRef = doc(db, "users", responseData.document_info.cedula);
             const userSnap = await getDoc(userDocRef);
             
@@ -116,8 +123,10 @@ const runIdentityCheckFlow = ai.defineFlow(
             };
 
             if (userSnap.exists()) {
+                console.log(`ID_CHECK_FLOW: User ${profileData.cedula} exists, updating profile.`);
                 await updateDoc(userDocRef, profileData);
             } else {
+                 console.log(`ID_CHECK_FLOW: User ${profileData.cedula} does not exist, creating new profile.`);
                  await setDoc(userDocRef, { 
                      ...profileData, 
                      role: 'Cliente', 
@@ -126,13 +135,17 @@ const runIdentityCheckFlow = ai.defineFlow(
                      createdAt: serverTimestamp() 
                  });
             }
+        } else {
+             console.log("ID_CHECK_FLOW: Verification did not pass according to API response.");
         }
         
+        console.log("ID_CHECK_FLOW: Updating verification document to 'completed'.");
         await updateDoc(verificationRef, {
             status: 'completed',
             apiResponse: responseData,
         });
 
+        console.log("ID_CHECK_FLOW: Process completed successfully.");
         return { success: true, message: "Verification completed successfully." };
 
     } catch (error: any) {
@@ -140,7 +153,7 @@ const runIdentityCheckFlow = ai.defineFlow(
        await updateDoc(verificationRef, {
           status: 'failed',
           error: error.message,
-      }).catch(e => console.error("Failed to write failure state to doc", e));
+      }).catch(e => console.error("ID_CHECK_FLOW: Failed to write failure state to doc", e));
 
       return { success: false, message: `Internal error: ${error.message}` };
     }
