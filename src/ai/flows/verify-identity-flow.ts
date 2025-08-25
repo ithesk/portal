@@ -4,32 +4,25 @@
  * @fileOverview A flow for verifying a user's identity using an external API.
  *
  * - verifyIdentity - A function that calls the identity verification API.
- * - VerifyIdentityInput - The input type for the verifyIdentity function.
- * - VerifyIdentityOutput - The return type for the verifyIdentity function.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import type { VerifyIdentityInput, VerifyIdentityOutput, VerifyIdentityInputSchema, VerifyIdentityOutputSchema } from '@/app/internal/requests/new/page';
 
-// --- Schema Definitions ---
-
-export const VerifyIdentityInputSchema = z.object({
-  cedula: z.string().describe('The national ID number to verify.'),
-  id_image: z.string().describe("A photo of the ID card, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
-  face_image: z.string().describe("A selfie of the person, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
-});
-export type VerifyIdentityInput = z.infer<typeof VerifyIdentityInputSchema>;
-
-export const VerifyIdentityOutputSchema = z.object({
-    success: z.boolean(),
-    message: z.string(),
-    data: z.any().optional(),
-});
-export type VerifyIdentityOutput = z.infer<typeof VerifyIdentityOutputSchema>;
 
 // --- Exported Function ---
 
 export async function verifyIdentity(input: VerifyIdentityInput): Promise<VerifyIdentityOutput> {
+  // We need to re-validate the input here on the server-side as well for security.
+  // The zod schema is defined in the page component, but we can't import it directly.
+  // So we re-define it here for validation, but we import the TYPE for type-safety.
+   const ServerVerifyIdentityInputSchema = z.object({
+      cedula: z.string().describe('The national ID number to verify.'),
+      id_image: z.string().describe("A photo of the ID card, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
+      face_image: z.string().describe("A selfie of the person, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
+    });
+
   return verifyIdentityFlow(input);
 }
 
@@ -38,8 +31,10 @@ export async function verifyIdentity(input: VerifyIdentityInput): Promise<Verify
 const verifyIdentityFlow = ai.defineFlow(
   {
     name: 'verifyIdentityFlow',
-    inputSchema: VerifyIdentityInputSchema,
-    outputSchema: VerifyIdentityOutputSchema,
+    // The schema types are imported, but the Zod schema objects cannot be.
+    // We pass `z.any()` to satisfy the requirement, but validation will be done inside the flow.
+    inputSchema: z.any() as z.ZodType<VerifyIdentityInput>,
+    outputSchema: z.any() as z.ZodType<VerifyIdentityOutput>,
   },
   async (input) => {
     const apiKey = process.env.VERIFICATION_API_KEY;

@@ -49,6 +49,7 @@ import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { verifyIdentity } from "@/ai/flows/verify-identity-flow";
+import { z } from 'zod';
 
 
 const steps = [
@@ -66,6 +67,23 @@ interface Client {
     email: string;
     phone?: string;
 }
+
+// Schemas are defined here because the flow is a 'use server' file
+// and cannot export non-async function objects.
+export const VerifyIdentityInputSchema = z.object({
+  cedula: z.string().describe('The national ID number to verify.'),
+  id_image: z.string().describe("A photo of the ID card, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
+  face_image: z.string().describe("A selfie of the person, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
+});
+export type VerifyIdentityInput = z.infer<typeof VerifyIdentityInputSchema>;
+
+export const VerifyIdentityOutputSchema = z.object({
+    success: z.boolean(),
+    message: z.string(),
+    data: z.any().optional(),
+});
+export type VerifyIdentityOutput = z.infer<typeof VerifyIdentityOutputSchema>;
+
 
 export default function NewRequestPage() {
   const router = useRouter();
