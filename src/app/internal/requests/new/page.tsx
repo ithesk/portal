@@ -20,6 +20,7 @@ import {
   Camera,
   QrCode,
   UserCheck,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,11 +46,10 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 const steps = [
@@ -78,36 +78,49 @@ function NewRequestForm() {
   const [idImage, setIdImage] = useState<File | null>(null);
   const [idImageUrl, setIdImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [verificationId, setVerificationId] = useState<string | null>(null);
   const [verificationData, setVerificationData] = useState<any>(null);
   const [verifiedClient, setVerifiedClient] = useState<Client | null>(null);
   const idImageRef = useRef<HTMLInputElement>(null);
   
-  // Real-time listener for verification document
-  useEffect(() => {
+
+  const handleCheckVerificationStatus = async () => {
     if (!verificationId) return;
-    
-    const unsub = onSnapshot(doc(db, "verifications", verificationId), (doc) => {
-        const data = doc.data();
-        if (data && data.status === 'completed') {
-            setVerificationData(data.apiResponse);
-            if (data.apiResponse.verification_passed) {
-                const clientInfo: Client = {
-                    id: data.apiResponse.document_info.cedula,
-                    cedula: data.apiResponse.document_info.cedula,
-                    name: data.apiResponse.document_info.nombre_completo,
-                    email: "", // User may need to input this later
-                };
-                setVerifiedClient(clientInfo);
-                toast({ title: "¡Verificación Completada!", description: `${clientInfo.name} ha sido verificado.` });
+
+    setIsCheckingStatus(true);
+    try {
+        const docRef = doc(db, "verifications", verificationId);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data && data.status === 'completed') {
+                setVerificationData(data.apiResponse);
+                if (data.apiResponse.verification_passed) {
+                    const clientInfo: Client = {
+                        id: data.apiResponse.document_info.cedula,
+                        cedula: data.apiResponse.document_info.cedula,
+                        name: data.apiResponse.document_info.nombre_completo,
+                        email: "", // User may need to input this later
+                    };
+                    setVerifiedClient(clientInfo);
+                    toast({ title: "¡Verificación Completada!", description: `${clientInfo.name} ha sido verificado.` });
+                } else {
+                     toast({ variant: "destructive", title: "Verificación Fallida", description: data.apiResponse.verification_details?.error || "Los datos biométricos no coincidieron." });
+                }
             } else {
-                 toast({ variant: "destructive", title: "Verificación Fallida", description: "Los datos biométricos no coincidieron." });
+                toast({ title: "Aún Pendiente", description: "El cliente todavía no ha completado el proceso de selfie." });
             }
         }
-    });
+    } catch (error) {
+        console.error("Error checking verification status", error);
+        toast({ variant: "destructive", title: "Error", description: "No se pudo comprobar el estado de la verificación." });
+    } finally {
+        setIsCheckingStatus(false);
+    }
+  };
 
-    return () => unsub();
-  }, [verificationId, toast]);
 
   // Step 2
   const [itemType, setItemType] = useState<string>("");
@@ -338,11 +351,14 @@ function NewRequestForm() {
                         ) : (
                             <>
                                 <h3 className="text-lg font-semibold">Esperando Selfie del Cliente...</h3>
-                                <p className="text-sm text-muted-foreground text-center">Pídele al cliente que escanee el código QR con su teléfono para completar la verificación.</p>
+                                <p className="text-sm text-muted-foreground text-center">Pídele al cliente que escanee el código QR y luego presiona "Verificar Estado".</p>
                                 <QRCode value={`${window.location.origin}/verify/${verificationId}`} size={160} />
                                 <div className="pt-4 flex items-center gap-2 text-muted-foreground">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    <span>Escuchando actualizaciones...</span>
+                                    <Button onClick={handleCheckVerificationStatus} disabled={isCheckingStatus}>
+                                        {isCheckingStatus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                        Verificar Estado
+                                    </Button>
                                 </div>
                             </>
                         )
