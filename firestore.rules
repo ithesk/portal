@@ -1,56 +1,89 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
+    
+    // --- Helper Functions ---
     function isInternalUser() {
-      // Check if the user making the request has the role of 'Admin' or 'Gestor'
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
+      // Checks if the signed-in user has the role of Admin or Gestor.
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
     }
 
     function isOwner(userId) {
-      // Check if the authenticated user's ID matches the document's userId
-      return request.auth.uid == userId;
+      // Checks if the signed-in user's ID matches the provided userId.
+      return request.auth != null && request.auth.uid == userId;
     }
-    
-    // VERIFICATIONS: Allow anyone to get a specific verification doc and update it only with the selfieUrl.
+
+    // --- Verification Flow Rules ---
     match /verifications/{verificationId} {
+      // Allow anyone to read a specific verification document. This is safe
+      // because the document ID is a long, unguessable string. This is
+      // necessary for the public /verify/[id] page to work.
       allow get: if true;
-      allow update: if request.resource.data.selfieUrl != resource.data.selfieUrl;
-      // Write and delete only for internal users (for cleanup, etc)
-      allow write, delete: if request.auth != null && isInternalUser();
+      
+      // Allow anyone to update a verification document, but ONLY to add the
+      // selfieUrl and change the status. This allows the client to submit
+      // their photo without needing to be logged in.
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['selfieUrl', 'status']);
     }
 
-    // USERS: Users can read/write their own data. Internal users can manage all users.
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
-      allow list, create: if request.auth != null && isInternalUser();
-    }
 
-    // PRODUCTS: Public can read, only internal users can modify.
+    // === Public Access Rules ===
     match /products/{productId} {
-        allow get, list: if true;
-        allow write, create, delete: if request.auth != null && isInternalUser();
+      // Anyone can read (list or get) a product.
+      allow read: if true;
+    }
+
+    // === Client Access Rules (Authenticated Users) ===
+    match /users/{userId} {
+      // A user can get and update their own user document.
+      allow get, update: if isOwner(userId);
+    }
+
+    match /requests/{requestId} {
+      // A user can read (get/list) requests that belong to them.
+      // The query from the client MUST include `where("userId", "==", request.auth.uid)`.
+      allow read: if isOwner(resource.data.userId);
+    }
+
+    match /equipment/{equipmentId} {
+      // A user can read (get/list) equipment that belongs to them.
+      // The query from the client MUST include `where("userId", "==", request.auth.uid)`.
+      allow read: if isOwner(resource.data.userId);
     }
     
-    // REQUESTS: Users can read their own requests. Internal users can manage all.
-    match /requests/{requestId} {
-        allow create: if request.auth != null; // Any authenticated user can create
-        allow read, write: if (request.auth != null && isOwner(resource.data.userId)) || (request.auth != null && isInternalUser());
-        allow list: if request.auth != null && isInternalUser();
+    match /payments/{paymentId} {
+      // A user can read (get/list) payments that belong to them.
+      // The query from the client MUST include `where("userId", "==", request.auth.uid)`.
+      allow read: if isOwner(resource.data.userId);
     }
 
-    // EQUIPMENT & PAYMENTS: Users can read their own. Internal users can manage all.
+
+    // === Internal Portal Rules (Admin/Gestor Roles) ===
+    // These rules grant broad access to internal users for management purposes.
+    match /users/{userId} {
+      // Internal users can read any user's document.
+      allow list, get: if isInternalUser();
+    }
+    
+    match /requests/{requestId} {
+      // Internal users can read and write any request document.
+      allow read, write: if isInternalUser();
+    }
+
     match /equipment/{equipmentId} {
-       allow read: if (request.auth != null && isOwner(resource.data.userId)) || (request.auth != null && isInternalUser());
-       allow write, create, list: if request.auth != null && isInternalUser();
+      // Internal users can read and write any equipment document.
+      allow read, write: if isInternalUser();
     }
 
     match /payments/{paymentId} {
-       allow read: if (request.auth != null && isOwner(resource.data.userId)) || (request.auth != null && isInternalUser());
-       allow write, create, list: if request.auth != null && isInternalUser();
+       // Internal users can read and write any payment document.
+      allow read, write: if isInternalUser();
+    }
+
+    match /products/{productId} {
+      // Internal users can read and write any product document.
+      allow read, write: if isInternalUser();
     }
   }
 }
