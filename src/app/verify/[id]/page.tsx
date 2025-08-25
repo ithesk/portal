@@ -30,12 +30,32 @@ export default function VerifyPage() {
     // Check if verification document exists
     useEffect(() => {
         const checkVerificationDoc = async () => {
-            if (!verificationId) return;
-            const docRef = doc(db, "verifications", verificationId as string);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists() && docSnap.data().status === 'pending-selfie') {
-                setVerificationStatus('pending');
-            } else {
+            if (!verificationId) {
+                console.log("DEBUG: No verificationId found in URL.");
+                setVerificationStatus('not_found');
+                return;
+            }
+            console.log(`DEBUG: Checking for verificationId: ${verificationId}`);
+            
+            try {
+                const docRef = doc(db, "verifications", verificationId as string);
+                const docSnap = await getDoc(docRef);
+
+                console.log(`DEBUG: Firestore document exists? -> ${docSnap.exists()}`);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    console.log("DEBUG: Document data:", data);
+                    if (data.status === 'pending-selfie') {
+                        setVerificationStatus('pending');
+                    } else {
+                        console.log(`DEBUG: Document status is '${data.status}', not 'pending-selfie'. Setting to not_found.`);
+                        setVerificationStatus('not_found');
+                    }
+                } else {
+                    setVerificationStatus('not_found');
+                }
+            } catch (error) {
+                console.error("DEBUG: Error fetching verification document:", error);
                 setVerificationStatus('not_found');
             }
         };
