@@ -19,8 +19,8 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-// Using the default database.
-const db = getFirestore(app);
+// Using the 'alzadatos' database.
+const db = getFirestore(app, 'alzadatos');
 const auth = getAuth(app);
 const storage = getStorage(app);
 
