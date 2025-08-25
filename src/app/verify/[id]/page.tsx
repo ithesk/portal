@@ -103,34 +103,40 @@ export default function VerifyPage() {
 
         setLoading(true);
         setStep('uploading');
+        console.log("DEBUG: handleConfirmSelfie started.");
         
         try {
             // 1. Upload selfie to storage
+            console.log("DEBUG: Uploading selfie to storage...");
             const storage = getStorage();
             const storageRef = ref(storage, `verifications/${verificationId}/selfie.jpg`);
             await uploadString(storageRef, selfieDataUrl, 'data_url');
             const selfieUrl = await getDownloadURL(storageRef);
+            console.log(`DEBUG: Selfie uploaded to: ${selfieUrl}`);
 
             // 2. Update verification document
+            console.log("DEBUG: Updating Firestore document with selfie URL and new status...");
             const docRef = doc(db, "verifications", verificationId as string);
             await updateDoc(docRef, {
                 selfieUrl: selfieUrl,
                 status: 'pending-verification'
             });
+            console.log("DEBUG: Firestore document updated successfully.");
 
             // 3. Trigger server-side verification via Cloud Function
+            console.log("DEBUG: Calling 'runIdentityCheck' Cloud Function...");
             const functions = getFunctions();
             // Ensure you use the correct region if your function is not in us-central1
             // const functions = getFunctions(getApp(), 'your-region'); 
             const runIdentityCheck = httpsCallable(functions, 'runIdentityCheck');
             const result = await runIdentityCheck({ verificationId: verificationId as string });
             
-            console.log("Cloud Function result:", result);
+            console.log("DEBUG: Cloud Function result:", result);
             setStep('completed');
             toast({ title: "¡Gracias!", description: "Tu verificación ha sido enviada. Puedes cerrar esta ventana." });
             
         } catch (error: any) {
-            console.error("Error in handleConfirmSelfie:", error);
+            console.error("DEBUG: Error in handleConfirmSelfie:", error);
             const errorMessage = error.message || "No se pudo enviar tu selfie.";
             toast({ variant: "destructive", title: "Error", description: errorMessage });
             setStep('error');

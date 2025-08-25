@@ -109,6 +109,8 @@ function NewRequestForm() {
                 } else {
                      toast({ variant: "destructive", title: "Verificación Fallida", description: data.apiResponse.verification_details?.error || "Los datos biométricos no coincidieron." });
                 }
+            } else if (data && data.status === 'failed') {
+                 toast({ variant: "destructive", title: "Verificación Fallida", description: data.error || "La verificación no pudo ser completada." });
             } else {
                 toast({ title: "Aún Pendiente", description: "El cliente todavía no ha completado el proceso de selfie." });
             }
@@ -151,29 +153,36 @@ function NewRequestForm() {
     }
     
     setIsUploading(true);
+    console.log("DEBUG: handleGenerateQR started.");
     try {
         const storage = getStorage();
         // 1. Create a verification document reference to get an ID
         const verificationRef = doc(collection(db, "verifications"));
-        setVerificationId(verificationRef.id);
+        const newVerificationId = verificationRef.id;
+        setVerificationId(newVerificationId);
+        console.log(`DEBUG: Generated new verificationId: ${newVerificationId}`);
         
         // 2. Upload ID image
-        const storageRef = ref(storage, `verifications/${verificationRef.id}/id_image.jpg`);
+        const storageRef = ref(storage, `verifications/${newVerificationId}/id_image.jpg`);
         await uploadBytes(storageRef, idImage);
         const imageUrl = await getDownloadURL(storageRef);
+        console.log(`DEBUG: ID image uploaded to: ${imageUrl}`);
         
         // 3. Set the initial data in Firestore
-        await setDoc(verificationRef, {
+        const docData = {
             cedula: cedulaInput,
             idImageUrl: imageUrl,
             status: "pending-selfie",
             createdAt: serverTimestamp(),
-        });
+        };
+        console.log(`DEBUG: Attempting to write to Firestore with data:`, docData);
+        await setDoc(verificationRef, docData);
+        console.log("DEBUG: Firestore document written successfully.");
         
         toast({ title: "QR Generado", description: "Pídele al cliente que escanee el código para continuar." });
 
     } catch (error) {
-        console.error(error);
+        console.error("DEBUG: Error in handleGenerateQR:", error);
         toast({ variant: "destructive", title: "Error", description: "No se pudo generar el QR." });
         setVerificationId(null);
     } finally {
@@ -524,5 +533,3 @@ export default function NewRequestPage() {
         </Suspense>
     );
 }
-
-    
