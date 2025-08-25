@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/verify/:id',
-        destination: '/verify/:id/page',
+        destination: '/verify/:id',
       },
     ]
   },
