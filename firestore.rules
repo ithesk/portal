@@ -3,35 +3,38 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Default deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     // --- Helper Functions ---
     function isInternalUser() {
       // Checks if the signed-in user has the role of Admin or Gestor.
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Gestor'];
     }
 
     function isOwner(userId) {
       // Checks if the signed-in user's ID matches the provided userId.
-      return request.auth != null && request.auth.uid == userId;
+      return request.auth.uid == userId;
     }
 
-    // --- Verification Flow Rules ---
+    // === Public Access & Verification Rules ===
+    match /products/{productId} {
+      // Anyone can read (list or get) a product.
+      allow read: if true;
+    }
+    
     match /verifications/{verificationId} {
       // Allow anyone to read a specific verification document. This is safe
       // because the document ID is a long, unguessable string. This is
       // necessary for the public /verify/[id] page to work.
       allow get: if true;
       
-      // Allow anyone to update a verification document, but ONLY to add the
-      // selfieUrl and change the status. This allows the client to submit
-      // their photo without needing to be logged in.
-      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['selfieUrl', 'status']);
-    }
-
-
-    // === Public Access Rules ===
-    match /products/{productId} {
-      // Anyone can read (list or get) a product.
-      allow read: if true;
+      // Allow anyone to update a verification document, but ONLY to add specific fields
+      // like selfieUrl and status. This allows the client to submit their photo without
+      // needing to be logged in, and prevents them from altering other critical data.
+      allow update: if request.resource.data.keys().hasOnly(['selfieUrl', 'status', 'idImageUrl', 'cedula', 'createdAt']);
     }
 
     // === Client Access Rules (Authenticated Users) ===
@@ -62,8 +65,8 @@ service cloud.firestore {
     // === Internal Portal Rules (Admin/Gestor Roles) ===
     // These rules grant broad access to internal users for management purposes.
     match /users/{userId} {
-      // Internal users can read any user's document.
-      allow list, get: if isInternalUser();
+      // Internal users can read and write any user's document.
+      allow read, write: if isInternalUser();
     }
     
     match /requests/{requestId} {
@@ -83,6 +86,11 @@ service cloud.firestore {
 
     match /products/{productId} {
       // Internal users can read and write any product document.
+      allow read, write: if isInternalUser();
+    }
+
+    match /clients/{docId} {
+      // This collection is legacy or for internal use only.
       allow read, write: if isInternalUser();
     }
   }
