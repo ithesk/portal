@@ -49,7 +49,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getStorage, ref, getDownloadURL } from "firebase/storage";
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 
 const steps = [
@@ -151,39 +152,71 @@ function NewRequestForm() {
         toast({ variant: "destructive", title: "Datos incompletos", description: "Por favor, ingresa la cédula y sube la foto del documento." });
         return;
     }
-    
+
     setIsUploading(true);
     console.log("DEBUG: handleGenerateQR started.");
+    const functions = getFunctions();
+    const generateUploadUrl = httpsCallable(functions, 'generateUploadUrl');
+
     try {
-        const storage = getStorage();
-        // 1. Create a verification document reference to get an ID
+        // 1. Create a new verification document locally to get an ID
         const verificationRef = doc(collection(db, "verifications"));
         const newVerificationId = verificationRef.id;
-        setVerificationId(newVerificationId);
         console.log(`DEBUG: Generated new verificationId: ${newVerificationId}`);
-        
-        // 2. Upload ID image
-        const storageRef = ref(storage, `verifications/${newVerificationId}/id_image.jpg`);
-        await uploadBytes(storageRef, idImage);
-        const imageUrl = await getDownloadURL(storageRef);
-        console.log(`DEBUG: ID image uploaded to: ${imageUrl}`);
-        
-        // 3. Set the initial data in Firestore
+
+        // 2. Call the Cloud Function to get a signed URL
+        console.log("DEBUG: Calling 'generateUploadUrl' Cloud Function...");
+        const result: any = await generateUploadUrl({
+            verificationId: newVerificationId,
+            contentType: idImage.type
+        });
+
+        if (!result.data.success) {
+            throw new Error(result.data.error || 'Failed to get upload URL from server.');
+        }
+
+        const signedUrl = result.data.url;
+        console.log("DEBUG: Got signed URL successfully.");
+
+        // 3. Upload the file to the signed URL using fetch
+        console.log("DEBUG: Starting ID image upload via signed URL...");
+        const uploadResponse = await fetch(signedUrl, {
+            method: 'PUT',
+            body: idImage,
+            headers: {
+                'Content-Type': idImage.type,
+            },
+        });
+
+        if (!uploadResponse.ok) {
+            throw new Error('File upload failed.');
+        }
+        console.log("DEBUG: ID image uploaded successfully.");
+
+        // 4. Get the public download URL
+        const storage = getStorage();
+        const fileRef = ref(storage, `verifications/${newVerificationId}/id_image.jpg`);
+        const downloadUrl = await getDownloadURL(fileRef);
+        console.log(`DEBUG: Got download URL: ${downloadUrl}`);
+
+
+        // 5. Set the initial data in Firestore
         const docData = {
             cedula: cedulaInput,
-            idImageUrl: imageUrl,
+            idImageUrl: downloadUrl,
             status: "pending-selfie",
             createdAt: serverTimestamp(),
         };
-        console.log(`DEBUG: Attempting to write to Firestore with data:`, docData);
+        console.log(`DEBUG: Preparing to write to Firestore with data:`, docData);
         await setDoc(verificationRef, docData);
         console.log("DEBUG: Firestore document written successfully.");
-        
+
+        setVerificationId(newVerificationId);
         toast({ title: "QR Generado", description: "Pídele al cliente que escanee el código para continuar." });
 
-    } catch (error) {
-        console.error("DEBUG: Error in handleGenerateQR:", error);
-        toast({ variant: "destructive", title: "Error", description: "No se pudo generar el QR." });
+    } catch (error: any) {
+        console.error("DEBUG: CRITICAL ERROR in handleGenerateQR:", error);
+        toast({ variant: "destructive", title: "Error al generar QR", description: `Hubo un problema en el servidor: ${error.message}` });
         setVerificationId(null);
     } finally {
         setIsUploading(false);

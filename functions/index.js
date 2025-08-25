@@ -16,6 +16,38 @@ const db = admin.firestore('alzadatos'); // Use the 'alzadatos' database
 // firebase functions:config:set verification.apikey="TU_API_KEY_AQUI"
 const VERIFICATION_API_KEY = functions.config().verification.apikey;
 
+
+exports.generateUploadUrl = regionalFunctions.https.onCall(async (data, context) => {
+    const { verificationId, contentType } = data;
+
+    if (!verificationId) {
+        throw new functions.https.HttpsError('invalid-argument', 'The function must be called with a "verificationId".');
+    }
+
+    const bucket = admin.storage().bucket();
+    const filePath = `verifications/${verificationId}/id_image.jpg`;
+    const file = bucket.file(filePath);
+
+    // Set options for the signed URL. The URL will be valid for 5 minutes.
+    const options = {
+        version: 'v4',
+        action: 'write',
+        expires: Date.now() + 5 * 60 * 1000, // 5 minutes
+        contentType: contentType,
+    };
+
+    try {
+        console.log(`[FUNCTION_LOG] Generating signed URL for: ${filePath}`);
+        const [url] = await file.getSignedUrl(options);
+        console.log(`[FUNCTION_LOG] generateUploadUrl SUCCESS for verificationId: ${verificationId}`);
+        return { success: true, url: url };
+    } catch (error) {
+        console.error('ERROR: Could not generate signed URL', error);
+        throw new functions.https.HttpsError('internal', 'Could not generate file upload URL.');
+    }
+});
+
+
 exports.runIdentityCheck = regionalFunctions.https.onCall(async (data, context) => {
     const { verificationId } = data;
 
