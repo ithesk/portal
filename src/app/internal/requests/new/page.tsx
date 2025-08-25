@@ -153,7 +153,7 @@ function NewRequestForm() {
     setIsUploading(true);
     try {
         const storage = getStorage();
-        // 1. Create a verification document to get an ID
+        // 1. Create a verification document reference to get an ID
         const verificationRef = doc(collection(db, "verifications"));
         setVerificationId(verificationRef.id);
         
@@ -162,7 +162,7 @@ function NewRequestForm() {
         await uploadBytes(storageRef, idImage);
         const imageUrl = await getDownloadURL(storageRef);
         
-        // 3. Set initial data in Firestore
+        // 3. Set the initial data in Firestore
         await setDoc(verificationRef, {
             cedula: cedulaInput,
             idImageUrl: imageUrl,
@@ -524,3 +524,5 @@ export default function NewRequestPage() {
         </Suspense>
     );
 }
+
+    
