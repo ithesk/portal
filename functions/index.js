@@ -9,7 +9,7 @@ const regionalFunctions = functions.region("us-central1");
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
-const db = admin.firestore();
+const db = admin.firestore('alzadatos');
 
 // IMPORTANT: Set your API Key as an environment variable in Firebase
 // Run this command in your terminal:
@@ -18,11 +18,14 @@ const VERIFICATION_API_KEY = functions.config().verification.apikey;
 
 
 exports.generateUploadUrl = regionalFunctions.https.onCall(async (data, context) => {
+    console.log("[FUNCTION_LOG] Starting generateUploadUrl function call...");
     const { verificationId, contentType } = data;
 
     if (!verificationId) {
+        console.error("[FUNCTION_LOG] ERROR: The function must be called with a 'verificationId'.");
         throw new functions.https.HttpsError('invalid-argument', 'The function must be called with a "verificationId".');
     }
+    console.log(`[FUNCTION_LOG] Received verificationId: ${verificationId} and contentType: ${contentType}`);
 
     const bucket = admin.storage().bucket();
     const filePath = `verifications/${verificationId}/id_image.jpg`;
@@ -42,7 +45,7 @@ exports.generateUploadUrl = regionalFunctions.https.onCall(async (data, context)
         console.log(`[FUNCTION_LOG] generateUploadUrl SUCCESS for verificationId: ${verificationId}`);
         return { success: true, url: url };
     } catch (error) {
-        console.error('ERROR: Could not generate signed URL', error);
+        console.error('[FUNCTION_LOG] ERROR: Could not generate signed URL', error);
         throw new functions.https.HttpsError('internal', 'Could not generate file upload URL.');
     }
 });
