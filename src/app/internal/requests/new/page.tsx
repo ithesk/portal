@@ -189,7 +189,9 @@ function NewRequestForm() {
         });
 
         if (!uploadResponse.ok) {
-            throw new Error('File upload failed.');
+            const errorText = await uploadResponse.text();
+            console.error("DEBUG: Upload failed with status:", uploadResponse.status, "and response:", errorText);
+            throw new Error(`File upload failed with status ${uploadResponse.status}`);
         }
         console.log("DEBUG: ID image uploaded successfully.");
 

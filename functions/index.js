@@ -9,7 +9,7 @@ const regionalFunctions = functions.region("us-central1");
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
-const db = admin.firestore('alzadatos');
+const db = admin.firestore();
 
 // IMPORTANT: Set your API Key as an environment variable in Firebase
 // Run this command in your terminal:
@@ -25,6 +25,7 @@ exports.generateUploadUrl = regionalFunctions.https.onCall(async (data, context)
         console.error("[FUNCTION_LOG] ERROR: The function must be called with a 'verificationId'.");
         throw new functions.https.HttpsError('invalid-argument', 'The function must be called with a "verificationId".');
     }
+    
     console.log(`[FUNCTION_LOG] Received verificationId: ${verificationId} and contentType: ${contentType}`);
 
     const bucket = admin.storage().bucket();
