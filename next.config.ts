@@ -17,6 +17,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/verify/:id',
+        destination: '/verify/:id/page',
+      },
+    ]
+  },
 };
 
 export default nextConfig;
