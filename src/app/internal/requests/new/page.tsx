@@ -49,7 +49,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
-import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 
@@ -67,6 +66,14 @@ interface Client {
     email: string;
     phone?: string;
 }
+
+// Helper to convert File to Base64
+const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+});
 
 function NewRequestForm() {
   const router = useRouter();
@@ -155,66 +162,26 @@ function NewRequestForm() {
 
     setIsUploading(true);
     console.log("DEBUG: handleGenerateQR started.");
-    const functions = getFunctions();
-    const generateUploadUrl = httpsCallable(functions, 'generateUploadUrl');
-
+    
     try {
-        // 1. Create a new verification document locally to get an ID
-        const verificationRef = doc(collection(db, "verifications"));
-        const newVerificationId = verificationRef.id;
-        console.log(`DEBUG: Generated new verificationId: ${newVerificationId}`);
-
-        // 2. Call the Cloud Function to get a signed URL
-        console.log("DEBUG: Calling 'generateUploadUrl' Cloud Function...");
-        const result: any = await generateUploadUrl({
-            verificationId: newVerificationId,
-            contentType: idImage.type
-        });
-
-        if (!result.data.success) {
-            throw new Error(result.data.error || 'Failed to get upload URL from server.');
-        }
-
-        const signedUrl = result.data.url;
-        console.log("DEBUG: Got signed URL successfully.");
-
-        // 3. Upload the file to the signed URL using fetch
-        console.log("DEBUG: Starting ID image upload via signed URL...");
-        const uploadResponse = await fetch(signedUrl, {
-            method: 'PUT',
-            body: idImage,
-            headers: {
-                'Content-Type': idImage.type,
-            },
-        });
-
-        if (!uploadResponse.ok) {
-            const errorText = await uploadResponse.text();
-            console.error("DEBUG: Upload failed with status:", uploadResponse.status, "and response:", errorText);
-            throw new Error(`File upload failed with status ${uploadResponse.status}`);
-        }
-        console.log("DEBUG: ID image uploaded successfully.");
-
-        // 4. Get the public download URL
-        const storage = getStorage();
-        const fileRef = ref(storage, `verifications/${newVerificationId}/id_image.jpg`);
-        const downloadUrl = await getDownloadURL(fileRef);
-        console.log(`DEBUG: Got download URL: ${downloadUrl}`);
-
-
-        // 5. Set the initial data in Firestore
-        const docData = {
+        const idImageBase64 = await toBase64(idImage);
+        
+        console.log("DEBUG: Calling 'verifyIdFromApp' Cloud Function...");
+        const functions = getFunctions();
+        const verifyIdFromApp = httpsCallable(functions, 'verifyIdFromApp');
+        
+        const result: any = await verifyIdFromApp({
             cedula: cedulaInput,
-            idImageUrl: downloadUrl,
-            status: "pending-selfie",
-            createdAt: serverTimestamp(),
-        };
-        console.log(`DEBUG: Preparing to write to Firestore with data:`, docData);
-        await setDoc(verificationRef, docData);
-        console.log("DEBUG: Firestore document written successfully.");
+            idImageBase64: idImageBase64,
+        });
 
-        setVerificationId(newVerificationId);
-        toast({ title: "QR Generado", description: "Pídele al cliente que escanee el código para continuar." });
+        if (result.data.success) {
+            console.log(`DEBUG: Cloud function SUCCESS. Received verificationId: ${result.data.verificationId}`);
+            setVerificationId(result.data.verificationId);
+            toast({ title: "QR Generado", description: "Pídele al cliente que escanee el código para continuar." });
+        } else {
+            throw new Error(result.data.error || 'La función en el servidor falló.');
+        }
 
     } catch (error: any) {
         console.error("DEBUG: CRITICAL ERROR in handleGenerateQR:", error);

@@ -17,37 +17,64 @@ const db = admin.firestore();
 const VERIFICATION_API_KEY = functions.config().verification.apikey;
 
 
+// DEPRECATED - This function is no longer used by the new flow.
 exports.generateUploadUrl = regionalFunctions.https.onCall(async (data, context) => {
-    console.log("[FUNCTION_LOG] Starting generateUploadUrl function call...");
-    const { verificationId, contentType } = data;
+    console.log("[DEPRECATED_FUNCTION_LOG] generateUploadUrl was called but is deprecated.");
+    throw new functions.https.HttpsError('unimplemented', 'This function is deprecated.');
+});
 
-    if (!verificationId) {
-        console.error("[FUNCTION_LOG] ERROR: The function must be called with a 'verificationId'.");
-        throw new functions.https.HttpsError('invalid-argument', 'The function must be called with a "verificationId".');
+
+exports.verifyIdFromApp = regionalFunctions.https.onCall(async (data, context) => {
+    console.log("[ID_APP_VERIFY_LOG] Starting verifyIdFromApp function call...");
+    const { cedula, idImageBase64 } = data;
+
+    if (!cedula || !idImageBase64) {
+        console.error("[ID_APP_VERIFY_LOG] ERROR: The function must be called with 'cedula' and 'idImageBase64'.");
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters.');
     }
     
-    console.log(`[FUNCTION_LOG] Received verificationId: ${verificationId} and contentType: ${contentType}`);
-
-    const bucket = admin.storage().bucket();
-    const filePath = `verifications/${verificationId}/id_image.jpg`;
-    const file = bucket.file(filePath);
-
-    // Set options for the signed URL. The URL will be valid for 5 minutes.
-    const options = {
-        version: 'v4',
-        action: 'write',
-        expires: Date.now() + 5 * 60 * 1000, // 5 minutes
-        contentType: contentType,
-    };
+    console.log(`[ID_APP_VERIFY_LOG] Received cedula: ${cedula}`);
+    const verificationRef = db.collection("verifications").doc();
+    const verificationId = verificationRef.id;
 
     try {
-        console.log(`[FUNCTION_LOG] Generating signed URL for: ${filePath}`);
-        const [url] = await file.getSignedUrl(options);
-        console.log(`[FUNCTION_LOG] generateUploadUrl SUCCESS for verificationId: ${verificationId}`);
-        return { success: true, url: url };
+        const bucket = admin.storage().bucket();
+        const filePath = `verifications/${verificationId}/id_image.jpg`;
+        const file = bucket.file(filePath);
+        
+        // The base64 string will be in the format 'data:image/jpeg;base64,LzlqLz...'
+        // We need to extract the actual base64 part.
+        const base64EncodedImageString = idImageBase64.replace(/^data:image\/\w+;base64,/, '');
+        const imageBuffer = Buffer.from(base64EncodedImageString, 'base64');
+        
+        console.log(`[ID_APP_VERIFY_LOG] Uploading ID image to: ${filePath}`);
+        await file.save(imageBuffer, {
+            metadata: { contentType: 'image/jpeg' },
+        });
+        
+        const [url] = await file.getSignedUrl({
+            action: 'read',
+            expires: '03-09-2491'
+        });
+
+        console.log(`[ID_APP_VERIFY_LOG] Image uploaded. Download URL: ${url}`);
+        
+        const docData = {
+            cedula: cedula,
+            idImageUrl: url,
+            status: "pending-selfie",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        console.log(`[ID_APP_VERIFY_LOG] Writing verification document to Firestore with ID: ${verificationId}`);
+        await verificationRef.set(docData);
+
+        console.log(`[ID_APP_VERIFY_LOG] SUCCESS for verificationId: ${verificationId}`);
+        return { success: true, verificationId: verificationId };
+
     } catch (error) {
-        console.error('[FUNCTION_LOG] ERROR: Could not generate signed URL', error);
-        throw new functions.https.HttpsError('internal', 'Could not generate file upload URL.');
+        console.error('[ID_APP_VERIFY_LOG] CRITICAL ERROR:', error);
+        throw new functions.https.HttpsError('internal', 'Could not complete verification process.');
     }
 });
 
