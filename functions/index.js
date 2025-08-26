@@ -12,7 +12,8 @@ const regionalFunctions = functions.region("us-central1");
 // Initialize Firebase Admin SDK with custom database
 const app = initializeApp({
   credential: applicationDefault(),
-  projectId: "equipotrack-qdywm", // 👈 cámbialo por tu Project ID real
+  projectId: "equipotrack-qdywm",
+  storageBucket: "equipotrack-qdywm.appspot.com",
 });
 
 const db = getFirestore(app, "alzadatos"); // 👈 conecta a la base alzadatos
@@ -61,7 +62,7 @@ exports.verifyIdFromApp = regionalFunctions.https.onCall(async (data, context) =
   const verificationId = verificationRef.id;
 
   try {
-    const bucket = storage.bucket();
+    const bucket = storage.bucket("equipotrack-qdywm.appspot.com");
     const filePath = `verifications/${verificationId}/id_image.jpg`;
     const file = bucket.file(filePath);
     
