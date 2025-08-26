@@ -5,6 +5,8 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 const fetch = require("node-fetch");
 const { FormData, Blob } = require("node-fetch");
+const { Storage } = require("@google-cloud/storage"); // <--- NUEVA IMPORTACIÓN
+
 
 // Use a specific region for your functions
 const regionalFunctions = functions.region("us-central1");
@@ -13,11 +15,12 @@ const regionalFunctions = functions.region("us-central1");
 const app = initializeApp({
   credential: applicationDefault(),
   projectId: "equipotrack-qdywm",
-  storageBucket: "equipotrack-qdywm.appspot.com",
+  storageBucket: "equipotrack-qdywm.firebasestorage.app",
 });
 
 const db = getFirestore(app, "alzadatos"); // 👈 conecta a la base alzadatos
 const storage = getStorage(app);
+
 
 // =======================================================================================
 // TEST FUNCTION TO DEBUG DATABASE CONNECTION
@@ -52,17 +55,36 @@ exports.verifyIdFromApp = regionalFunctions.https.onCall(async (data, context) =
   console.log("[ID_APP_VERIFY_LOG] Starting verifyIdFromApp function call...");
   const { cedula, idImageBase64 } = data;
 
+
   if (!cedula || !idImageBase64) {
     console.error("[ID_APP_VERIFY_LOG] ERROR: The function must be called with 'cedula' and 'idImageBase64'.");
     throw new functions.https.HttpsError("invalid-argument", "Missing required parameters.");
   }
   
-  console.log(`[ID_APP_VERIFY_LOG] Received cedula: ${cedula}`);
+  console.log(`[ID_APP_VERIFY_LOG] Received 2 cedula: ${cedula}`);
   const verificationRef = db.collection("verifications").doc();
   const verificationId = verificationRef.id;
 
+  
+
   try {
-    const bucket = storage.bucket("equipotrack-qdywm.appspot.com"); 
+    console.log("[ID_APP_VERIFY_LOG] DEBUG: Listing available Storage buckets...");
+    try {
+      const gcs = new Storage();
+      const [buckets] = await gcs.getBuckets();
+      if (buckets.length === 0) {
+        console.log("[ID_APP_VERIFY_LOG] DEBUG: No Storage buckets found for this project/service account.");
+      } else {
+        console.log("[ID_APP_VERIFY_LOG] DEBUG: Found the following Storage buckets:");
+        buckets.forEach(bucket => {
+          console.log(`- ${bucket.name}`);
+        });
+      }
+    } catch (listError) {
+      console.error("[ID_APP_VERIFY_LOG] DEBUG ERROR: Failed to list buckets:", listError);
+    };
+    console.log(`[ID_APP_VERIFY_LOG] Attempting to upload ID image mio to Firebase Storage...`);
+    const bucket = storage.bucket("equipotrack-qdywm.firebasestorage.app"); 
     const filePath = `verifications/${verificationId}/id_image.jpg`;
     const file = bucket.file(filePath);
     
@@ -76,7 +98,7 @@ exports.verifyIdFromApp = regionalFunctions.https.onCall(async (data, context) =
     
     const [url] = await file.getSignedUrl({
       action: "read",
-      expires: "03-09-2491",
+      expires: new Date('2491-09-03'), // Formato correcto para la fecha de expiración
     });
 
     console.log(`[ID_APP_VERIFY_LOG] Image uploaded. Download URL: ${url}`);
