@@ -62,7 +62,7 @@ exports.verifyIdFromApp = regionalFunctions.https.onCall(async (data, context) =
   const verificationId = verificationRef.id;
 
   try {
-    const bucket = storage.bucket("equipotrack-qdywm.appspot.com");
+    const bucket = storage.bucket("equipotrack-qdywm.appspot.com"); 
     const filePath = `verifications/${verificationId}/id_image.jpg`;
     const file = bucket.file(filePath);
     

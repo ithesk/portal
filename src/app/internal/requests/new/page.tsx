@@ -314,13 +314,13 @@ function NewRequestForm() {
           </CardHeader>
           <CardContent className="min-h-[450px]">
             {currentStep === 1 && (
-               <div className="grid md:grid-cols-2 gap-8 pt-6">
-                 <div>
+               <div className="flex flex-col md:flex-row gap-8 pt-6">
+                 <div className="flex-1 space-y-6">
                    <CardTitle>Datos de Identificación</CardTitle>
-                   <CardDescription className="mt-2">
+                   <CardDescription>
                        Ingresa la cédula del cliente y sube una foto clara del documento.
                    </CardDescription>
-                    <div className="space-y-4 mt-6">
+                    <div className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="cedula">Número de Cédula</Label>
                             <Input id="cedula" placeholder="001-0000000-0" value={cedulaInput} onChange={(e) => setCedulaInput(e.target.value)} disabled={!!verificationId}/>
@@ -332,14 +332,14 @@ function NewRequestForm() {
                                 <Camera className="mr-2" /> {idImage ? idImage.name : "Subir Foto"}
                             </Button>
                         </div>
-                        {idImageUrl && <img src={idImageUrl} alt="Preview Cédula" className="mt-2 rounded-md border max-h-32" />}
+                        {idImageUrl && <img src={idImageUrl} alt="Preview Cédula" className="mt-2 rounded-md border max-h-32 mx-auto" />}
                          <Button className="w-full" type="button" onClick={handleGenerateQR} disabled={isUploading || !!verificationId}>
                             {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             <QrCode className="mr-2" /> Generar QR para Selfie
                          </Button>
                     </div>
                  </div>
-                 <div className="flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-4">
+                 <div className="flex-1 flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-4 min-h-[300px]">
                     {verificationId ? (
                         verifiedClient ? (
                             <Card className="w-full bg-green-50 border-green-200">
