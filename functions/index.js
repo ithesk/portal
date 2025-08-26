@@ -15,17 +15,19 @@ const db = admin.firestore();
 
 
 // =======================================================================================
-// TEST FUNCTION TO DEBUG DATABASE CONNECTION
+// TEST FUNCTION TO DEBUG DATABASE CONNECTION - THIS WILL BE REMOVED LATER
 // =======================================================================================
 exports.testDatabaseWrite = regionalFunctions.https.onCall(async (data, context) => {
     console.log("[DB_TEST_LOG] Starting testDatabaseWrite function call...");
     try {
-        const testRef = db.collection("test_logs").doc("test_doc");
-        console.log("[DB_TEST_LOG] Attempting to write to 'test_logs/test_doc'...");
+        // Explicitly point to the 'alzadatos' database for this test.
+        const alzaDb = admin.firestore();
+        const testRef = alzaDb.collection("test_logs").doc("test_doc");
+        console.log("[DB_TEST_LOG] Attempting to write to 'test_logs/test_doc' in alzadatos...");
         await testRef.set({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             message: "Test write from Cloud Function was successful!",
-            database: db.databaseId, // This will log which database it's connected to.
+            database: alzaDb.databaseId, 
         });
         console.log("[DB_TEST_LOG] SUCCESS: Document written successfully!");
         return { success: true, message: "Test document written successfully!" };
@@ -62,8 +64,6 @@ exports.verifyIdFromApp = regionalFunctions.https.onCall(async (data, context) =
         const filePath = `verifications/${verificationId}/id_image.jpg`;
         const file = bucket.file(filePath);
         
-        // The base64 string will be in the format 'data:image/jpeg;base64,LzlqLz...'
-        // We need to extract the actual base64 part.
         const base64EncodedImageString = idImageBase64.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64EncodedImageString, 'base64');
         

@@ -133,31 +133,31 @@ function NewRequestForm() {
 
 
   const handleGenerateQR = async () => {
-    setIsUploading(true);
-    console.log("DEBUG: Running DB Write Test...");
-    try {
-      const functions = getFunctions();
-      const testDatabaseWrite = httpsCallable(functions, 'testDatabaseWrite');
-      const result: any = await testDatabaseWrite();
-      if (result.data.success) {
-        toast({
-          title: "Prueba de Base de Datos Exitosa",
-          description: "La función pudo escribir en la base de datos correctamente."
-        });
-      } else {
-        throw new Error(result.data.error || 'La función de prueba falló en el servidor.');
-      }
-    } catch (error: any) {
-      console.error("DEBUG: CRITICAL ERROR in DB Write Test:", error);
-      toast({
-        variant: "destructive",
-        title: "Error en Prueba de Escritura",
-        description: `Hubo un problema de conexión con la base de datos: ${error.message}`
-      });
-    } finally {
-      setIsUploading(false);
+    if (!cedulaInput || !idImage) {
+        toast({ variant: "destructive", title: "Campos requeridos", description: "Por favor ingresa la cédula y sube la imagen." });
+        return;
     }
-  };
+    
+    setIsUploading(true);
+    try {
+        const idImageBase64 = await toBase64(idImage);
+        const functions = getFunctions();
+        const verifyIdFromApp = httpsCallable(functions, 'verifyIdFromApp');
+        const result: any = await verifyIdFromApp({ cedula: cedulaInput, idImageBase64 });
+
+        if (result.data.success && result.data.verificationId) {
+            setVerificationId(result.data.verificationId);
+            toast({ title: "QR Generado", description: "Pídele al cliente que escanee el código para continuar." });
+        } else {
+            throw new Error(result.data.error || "La función del servidor no devolvió un ID de verificación.");
+        }
+    } catch (error: any) {
+        console.error("Error al generar QR:", error);
+        toast({ variant: "destructive", title: "Error al generar QR", description: `Hubo un problema de comunicación con el servidor: ${error.message}` });
+    } finally {
+        setIsUploading(false);
+    }
+};
 
 
   // Step 2
@@ -331,7 +331,7 @@ function NewRequestForm() {
                             </Button>
                         </div>
                         {idImageUrl && <img src={idImageUrl} alt="Preview Cédula" className="mt-2 rounded-md border max-h-32" />}
-                         <Button className="w-full" type="button" onClick={handleGenerateQR} disabled={isUploading}>
+                         <Button className="w-full" type="button" onClick={handleGenerateQR} disabled={isUploading || !!verificationId}>
                             {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             <QrCode className="mr-2" /> Generar QR para Selfie
                          </Button>
