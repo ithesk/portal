@@ -20,6 +20,7 @@ export default function VerifyPage() {
     const { toast } = useToast();
     
     const [loading, setLoading] = useState(false);
+    const [loadingText, setLoadingText] = useState("Procesando, por favor espera...");
     const [step, setStep] = useState<'initial' | 'camera' | 'preview' | 'uploading' | 'completed' | 'error'>('initial');
     const [verificationStatus, setVerificationStatus] = useState<'pending' | 'validating' | 'not_found'>('validating');
     
@@ -107,6 +108,7 @@ export default function VerifyPage() {
         
         try {
             // 1. Upload selfie to storage
+            setLoadingText("Subiendo tu foto de forma segura...");
             console.log("DEBUG: Uploading selfie to storage...");
             const storage = getStorage();
             const storageRef = ref(storage, `verifications/${verificationId}/selfie.jpg`);
@@ -115,6 +117,7 @@ export default function VerifyPage() {
             console.log(`DEBUG: Selfie uploaded to: ${selfieUrl}`);
 
             // 2. Update verification document
+            setLoadingText("Actualizando tu solicitud...");
             console.log("DEBUG: Updating Firestore document with selfie URL and new status...");
             const docRef = doc(db, "verifications", verificationId as string);
             await updateDoc(docRef, {
@@ -124,6 +127,7 @@ export default function VerifyPage() {
             console.log("DEBUG: Firestore document updated successfully.");
 
             // 3. Trigger server-side verification via Cloud Function
+            setLoadingText("Ejecutando verificación facial...");
             console.log("DEBUG: Calling 'runIdentityCheck' Cloud Function...");
             const functions = getFunctions();
             // Ensure you use the correct region if your function is not in us-central1
@@ -208,7 +212,7 @@ export default function VerifyPage() {
                     {(step === 'uploading' || loading) && (
                          <div className="flex flex-col items-center justify-center space-y-4 py-12">
                            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                           <p className="text-muted-foreground">Procesando, por favor espera...</p>
+                           <p className="text-muted-foreground">{loadingText}</p>
                         </div>
                     )}
                     
@@ -234,3 +238,5 @@ export default function VerifyPage() {
         </div>
     );
 }
+
+    
