@@ -10,13 +10,31 @@ const regionalFunctions = functions.region("us-central1");
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 // **CRUCIAL**: Explicitly select the 'alzadatos' database.
+// The (default) database is not used in this project.
 const db = admin.firestore();
 
 
-// IMPORTANT: Set your API Key as an environment variable in Firebase
-// Run this command in your terminal:
-// firebase functions:config:set verification.apikey="TU_API_KEY_AQUI"
-const VERIFICATION_API_KEY = functions.config().verification.apikey;
+// =======================================================================================
+// TEST FUNCTION TO DEBUG DATABASE CONNECTION
+// =======================================================================================
+exports.testDatabaseWrite = regionalFunctions.https.onCall(async (data, context) => {
+    console.log("[DB_TEST_LOG] Starting testDatabaseWrite function call...");
+    try {
+        const testRef = db.collection("test_logs").doc("test_doc");
+        console.log("[DB_TEST_LOG] Attempting to write to 'test_logs/test_doc'...");
+        await testRef.set({
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            message: "Test write from Cloud Function was successful!",
+            database: db.databaseId, // This will log which database it's connected to.
+        });
+        console.log("[DB_TEST_LOG] SUCCESS: Document written successfully!");
+        return { success: true, message: "Test document written successfully!" };
+    } catch (error) {
+        console.error("[DB_TEST_LOG] CRITICAL ERROR during test write:", error);
+        throw new functions.https.HttpsError('internal', 'Test write to database failed.', error.message);
+    }
+});
+// =======================================================================================
 
 
 // DEPRECATED - This function is no longer used by the new flow.
