@@ -10,7 +10,6 @@ const regionalFunctions = functions.region("us-central1");
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 // **CRUCIAL**: Explicitly select the 'alzadatos' database.
-// The (default) database is not used in this project.
 const db = admin.firestore();
 
 
