@@ -147,14 +147,15 @@ exports.runIdentityCheck = regionalFunctions.https.onCall(async (data, context) 
       throw new functions.https.HttpsError("failed-precondition", `Verification document is not in the correct state. Status: ${verificationData.status}`);
     }
 
-    if (!process.env.VERIFICATION_API_KEY) {
+    const apiKey = functions.config().verification.api_key;
+    if (!apiKey) {
       console.error("[ID_CHECK_FUNCTION] CRITICAL: Missing VERIFICATION_API_KEY in environment configuration.");
       throw new functions.https.HttpsError("internal", "Server configuration is incomplete.");
     }
 
     const formData = new FormData();
     formData.append("cedula", verificationData.cedula);
-    formData.append("api_key", process.env.VERIFICATION_API_KEY);
+    formData.append("api_key", apiKey);
 
     console.log("[ID_CHECK_FUNCTION] Fetching ID image from URL:", verificationData.idImageUrl);
     const idImageResponse = await fetch(verificationData.idImageUrl);
@@ -237,3 +238,5 @@ exports.runIdentityCheck = regionalFunctions.https.onCall(async (data, context) 
     throw new functions.https.HttpsError("internal", "An unexpected error occurred during verification.");
   }
 });
+
+    
