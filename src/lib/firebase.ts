@@ -12,7 +12,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyCptCTP7xDmJkvWdMJ1HrHZ4m_qL35KxEg",
   authDomain: "equipotrack-qdywm.firebaseapp.com",
   projectId: "equipotrack-qdywm",
-  storageBucket: "equipotrack-qdywm.appspot.com",
+  storageBucket: "equipotrack-qdywm.firebasestorage.app",
   messagingSenderId: "112084576784",
   appId: "1:112084576784:web:f259df9a36afe62f227895"
 };
