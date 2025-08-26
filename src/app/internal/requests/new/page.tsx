@@ -133,21 +133,29 @@ function NewRequestForm() {
 
 
   const handleGenerateQR = async () => {
-    // This is now a test button
+    if (!cedulaInput || !idImage) {
+        toast({ variant: "destructive", title: "Campos Requeridos", description: "Por favor, ingresa la cédula y sube la foto." });
+        return;
+    }
+    
     setIsUploading(true);
     try {
-      const functions = getFunctions();
-      const testDatabaseWrite = httpsCallable(functions, 'testDatabaseWrite');
-      const result: any = await testDatabaseWrite();
+        const idImageBase64 = await toBase64(idImage);
+        
+        const functions = getFunctions();
+        const verifyIdFromApp = httpsCallable(functions, 'verifyIdFromApp');
+        const result: any = await verifyIdFromApp({ cedula: cedulaInput, idImageBase64 });
 
-      if (result.data.success) {
-        toast({ title: "Prueba Exitosa", description: "Se ha escrito el documento de prueba en la base de datos." });
-      } else {
-         throw new Error(result.data.message || "La función de prueba falló sin un mensaje de error.");
-      }
+        if (result.data.success) {
+            setVerificationId(result.data.verificationId);
+            toast({ title: "QR Generado", description: "Pídele al cliente que escanee el código para continuar." });
+        } else {
+            throw new Error(result.data.message || "La función para generar QR falló.");
+        }
+
     } catch (error: any) {
-       console.error("Error al ejecutar la prueba de BD:", error);
-       toast({ variant: "destructive", title: "Error en la Prueba", description: `Hubo un problema de comunicación con el servidor: ${error.message}` });
+        console.error("Error al generar QR:", error);
+        toast({ variant: "destructive", title: "Error", description: `Hubo un problema al generar el QR: ${error.message}` });
     } finally {
         setIsUploading(false);
     }
@@ -327,7 +335,7 @@ function NewRequestForm() {
                         {idImageUrl && <img src={idImageUrl} alt="Preview Cédula" className="mt-2 rounded-md border max-h-32" />}
                          <Button className="w-full" type="button" onClick={handleGenerateQR} disabled={isUploading || !!verificationId}>
                             {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            <QrCode className="mr-2" /> Ejecutar Prueba de Escritura
+                            <QrCode className="mr-2" /> Generar QR para Selfie
                          </Button>
                     </div>
                  </div>
