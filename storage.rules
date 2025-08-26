@@ -1,0 +1,15 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow public write access only for the verification selfies and ID images
+    match /verifications/{verificationId}/{imageName} {
+      allow read, write: if imageName == 'id_image.jpg' || imageName == 'selfie.jpg';
+    }
+
+    // Secure all other paths
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
