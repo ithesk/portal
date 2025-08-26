@@ -168,7 +168,7 @@ export default function RequestsPage() {
               </DropdownMenuContent>
             </DropdownMenu>
             <Button asChild>
-              <Link href="/internal/requests/new">
+              <Link href="/internal/requests/new2">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Nueva Solicitud
               </Link>
