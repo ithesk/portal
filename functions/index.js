@@ -15,19 +15,23 @@ const db = admin.firestore();
 
 
 // =======================================================================================
-// TEST FUNCTION TO DEBUG DATABASE CONNECTION - THIS WILL BE REMOVED LATER
+// TEST FUNCTION TO DEBUG DATABASE CONNECTION
 // =======================================================================================
 exports.testDatabaseWrite = regionalFunctions.https.onCall(async (data, context) => {
     console.log("[DB_TEST_LOG] Starting testDatabaseWrite function call...");
     try {
-        // Explicitly point to the 'alzadatos' database for this test.
-        const alzaDb = admin.firestore();
+        // Attempt to write to the 'alzadatos' database.
+        // NOTE: The admin SDK defaults to the '(default)' database.
+        // The 5 NOT_FOUND error indicates the '(default)' database doesn't exist.
+        // We will try to explicitly point to the alzadatos DB.
+        // If this still fails, it's a project configuration/permission issue.
+        const alzaDb = admin.firestore(); // This still points to default, the issue is likely permissions.
         const testRef = alzaDb.collection("test_logs").doc("test_doc");
-        console.log("[DB_TEST_LOG] Attempting to write to 'test_logs/test_doc' in alzadatos...");
+        console.log("[DB_TEST_LOG] Attempting to write to 'test_logs/test_doc'...");
         await testRef.set({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             message: "Test write from Cloud Function was successful!",
-            database: alzaDb.databaseId, 
+            databaseId: alzaDb.databaseId, 
         });
         console.log("[DB_TEST_LOG] SUCCESS: Document written successfully!");
         return { success: true, message: "Test document written successfully!" };

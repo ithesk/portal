@@ -133,31 +133,25 @@ function NewRequestForm() {
 
 
   const handleGenerateQR = async () => {
-    if (!cedulaInput || !idImage) {
-        toast({ variant: "destructive", title: "Campos requeridos", description: "Por favor ingresa la cédula y sube la imagen." });
-        return;
-    }
-    
+    // This is now a test button
     setIsUploading(true);
     try {
-        const idImageBase64 = await toBase64(idImage);
-        const functions = getFunctions();
-        const verifyIdFromApp = httpsCallable(functions, 'verifyIdFromApp');
-        const result: any = await verifyIdFromApp({ cedula: cedulaInput, idImageBase64 });
+      const functions = getFunctions();
+      const testDatabaseWrite = httpsCallable(functions, 'testDatabaseWrite');
+      const result: any = await testDatabaseWrite();
 
-        if (result.data.success && result.data.verificationId) {
-            setVerificationId(result.data.verificationId);
-            toast({ title: "QR Generado", description: "Pídele al cliente que escanee el código para continuar." });
-        } else {
-            throw new Error(result.data.error || "La función del servidor no devolvió un ID de verificación.");
-        }
+      if (result.data.success) {
+        toast({ title: "Prueba Exitosa", description: "Se ha escrito el documento de prueba en la base de datos." });
+      } else {
+         throw new Error(result.data.message || "La función de prueba falló sin un mensaje de error.");
+      }
     } catch (error: any) {
-        console.error("Error al generar QR:", error);
-        toast({ variant: "destructive", title: "Error al generar QR", description: `Hubo un problema de comunicación con el servidor: ${error.message}` });
+       console.error("Error al ejecutar la prueba de BD:", error);
+       toast({ variant: "destructive", title: "Error en la Prueba", description: `Hubo un problema de comunicación con el servidor: ${error.message}` });
     } finally {
         setIsUploading(false);
     }
-};
+  };
 
 
   // Step 2
@@ -333,7 +327,7 @@ function NewRequestForm() {
                         {idImageUrl && <img src={idImageUrl} alt="Preview Cédula" className="mt-2 rounded-md border max-h-32" />}
                          <Button className="w-full" type="button" onClick={handleGenerateQR} disabled={isUploading || !!verificationId}>
                             {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            <QrCode className="mr-2" /> Generar QR para Selfie
+                            <QrCode className="mr-2" /> Ejecutar Prueba de Escritura
                          </Button>
                     </div>
                  </div>
