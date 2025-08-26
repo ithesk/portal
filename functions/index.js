@@ -4,8 +4,9 @@ const { initializeApp, applicationDefault } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 const fetch = require("node-fetch");
-const { FormData, Blob } = require("node-fetch");
-const { Storage } = require("@google-cloud/storage"); // <--- NUEVA IMPORTACIÓN
+const FormData = require("form-data"); // <--- IMPORTACIÓN CORREGIDA
+const { Blob } = require("node-fetch");
+const { Storage } = require("@google-cloud/storage");
 
 
 // Use a specific region for your functions
@@ -174,7 +175,7 @@ exports.runIdentityCheck = regionalFunctions.https.onCall(async (data, context) 
     const response = await fetch(apiUrl, {
       method: "POST",
       body: formData,
-      headers: formData.getHeaders ? formData.getHeaders() : {},
+      headers: formData.getHeaders(), // <-- MÉTODO CORREGIDO
     });
 
     const responseData = await response.json();
