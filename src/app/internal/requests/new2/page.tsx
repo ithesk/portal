@@ -322,6 +322,25 @@ function NewRequestForm() {
   const [initialPercentage, setInitialPercentage] = useState(40);
   const [installments, setInstallments] = useState(6);
   const [requestDate] = useState(new Date());
+  const [interestRate, setInterestRate] = useState(0.525); // Default interest rate
+
+  // Fetch financing settings
+  useEffect(() => {
+    const fetchSettings = async () => {
+        try {
+            const settingsRef = doc(db, "config", "financing");
+            const docSnap = await getDoc(settingsRef);
+            if (docSnap.exists()) {
+                setInterestRate(docSnap.data().interestRate);
+            }
+        } catch (error) {
+            console.error("Could not fetch financing settings, using default.", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar la configuración de intereses. Usando valores por defecto.'});
+        }
+    }
+    fetchSettings();
+  }, [toast]);
+
 
   // Step 3
   const [imei, setImei] = useState("");
@@ -340,7 +359,6 @@ function NewRequestForm() {
 
   const initialPayment = itemValue * (initialPercentage / 100);
   const financingAmount = itemValue - initialPayment;
-  const interestRate = 0.525;
   const totalInterest = financingAmount * interestRate;
   const totalToPayInInstallments = financingAmount + totalInterest;
   const biweeklyPayment = installments > 0 ? totalToPayInInstallments / installments : 0;
@@ -801,4 +819,3 @@ export default function NewRequestPage() {
         </Suspense>
     );
 }
-

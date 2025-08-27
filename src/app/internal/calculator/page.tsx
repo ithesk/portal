@@ -1,10 +1,11 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Calculator,
   Info,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,29 +19,80 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 export default function CalculatorPage() {
   const [itemValue, setItemValue] = useState(12500);
   const [initialPercentage, setInitialPercentage] = useState(40);
   const [installments, setInstallments] = useState(6);
+  const [interestRate, setInterestRate] = useState(0.525); // Default interest rate
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+        setLoading(true);
+        try {
+            const settingsRef = doc(db, "config", "financing");
+            const docSnap = await getDoc(settingsRef);
+            if (docSnap.exists()) {
+                setInterestRate(docSnap.data().interestRate);
+            } else {
+                 toast({ variant: 'destructive', title: 'Advertencia', description: 'No se encontró configuración de intereses. Usando valores por defecto.'});
+            }
+        } catch (error) {
+            console.error("Could not fetch financing settings, using default.", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar la configuración de intereses.'});
+        } finally {
+            setLoading(false);
+        }
+    }
+    fetchSettings();
+  }, [toast]);
+
 
   // --- Lógica de Cálculo Actualizada ---
   const initialPayment = itemValue * (initialPercentage / 100);
   const financingAmount = itemValue - initialPayment;
-  const interestRate = 0.525; // 52.5% de interés fijo sobre el monto a financiar
   const totalInterest = financingAmount * interestRate;
   const totalToPayInInstallments = financingAmount + totalInterest;
   const biweeklyPayment = installments > 0 ? totalToPayInInstallments / installments : 0;
   const totalPaid = initialPayment + totalToPayInInstallments;
   // --- Fin de la Lógica de Cálculo ---
 
+  if (loading) {
+    return (
+        <Card className="max-w-3xl mx-auto">
+            <CardHeader>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-5 w-96 mt-2" />
+            </CardHeader>
+            <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
+                    <div className="space-y-6">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                     <div className="space-y-4">
+                        <Skeleton className="h-64 w-full" />
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    )
+  }
+
   return (
     <Card className="max-w-3xl mx-auto">
         <CardHeader>
             <CardTitle>Calculadora de Financiamiento</CardTitle>
             <CardDescription>
-                Usa esta herramienta para simular y desglosar un plan de financiamiento.
+                Usa esta herramienta para simular y desglosar un plan de financiamiento. La tasa de interés se obtiene de la configuración general.
             </CardDescription>
         </CardHeader>
         <CardContent>
