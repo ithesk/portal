@@ -323,7 +323,7 @@ exports.getFinancingSettings = regionalFunctions.https.onCall(async (data, conte
     const settingsRef = db.collection("config").doc("financing");
     try {
         const docSnap = await settingsRef.get();
-        if (docSnap.exists()) {
+        if (docSnap.exists) {
             return docSnap.data();
         } else {
             // Return a default if it doesn't exist
