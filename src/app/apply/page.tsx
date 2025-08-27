@@ -4,8 +4,7 @@
 import { useState, Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from "next/link";
-import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 import {
   ChevronLeft,
@@ -52,47 +51,31 @@ function ApplyForm() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+  const [codeSent, setCodeSent] = useState(false);
 
-
-  const setupRecaptcha = () => {
-    if (!recaptchaContainerRef.current) return;
-    
-    // Clear any previous instance
-    recaptchaContainerRef.current.innerHTML = '';
-
-    const authInstance = getAuth();
-    // Use window.recaptchaVerifier if it exists, otherwise create it.
-    // This is to prevent re-creating the verifier on every send.
-    if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = new RecaptchaVerifier(authInstance, recaptchaContainerRef.current, {
-          'size': 'invisible',
-          'callback': (response: any) => {
-            // reCAPTCHA solved, allow signInWithPhoneNumber.
-            console.log("reCAPTCHA solved");
-          }
-        });
-    }
-  }
 
   const onSendCode = async () => {
       setLoading(true);
-      // Stricter validation: ensure number starts with '+' for E.164 format
-      if (!phoneNumber || !/^\+[1-9]\d{1,14}$/.test(phoneNumber)) {
-          toast({ variant: "destructive", title: "Número Inválido", description: "El número debe estar en formato internacional, iniciando con '+' y el código de país (ej: +1809...)." });
+      if (!phoneNumber || !/^\d{10,15}$/.test(phoneNumber.replace(/\D/g, ''))) {
+          toast({ variant: "destructive", title: "Número Inválido", description: "Por favor, ingresa un número de teléfono válido." });
           setLoading(false);
           return;
       }
 
       try {
-          setupRecaptcha();
-          const appVerifier = window.recaptchaVerifier;
-          const result = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
-          setConfirmationResult(result);
-          toast({ title: "Código Enviado", description: "Revisa tus mensajes para ver el código de 6 dígitos." });
+          const functions = getFunctions();
+          const sendSmsVerification = httpsCallable(functions, 'sendSmsVerification');
+          const result: any = await sendSmsVerification({ phoneNumber });
+          
+          if (result.data.success) {
+            setCodeSent(true);
+            toast({ title: "Código Enviado", description: "Revisa tus mensajes para ver el código de 6 dígitos." });
+          } else {
+            throw new Error(result.data.message || 'Error desconocido al enviar SMS.');
+          }
+
       } catch (error: any) {
-          console.error("Error sending SMS:", error);
+          console.error("Error sending SMS via Cloud Function:", error);
           toast({ variant: "destructive", title: "Error al Enviar Código", description: error.message });
       } finally {
           setLoading(false);
@@ -101,19 +84,26 @@ function ApplyForm() {
 
   const onVerifyCode = async () => {
       setLoading(true);
-      if (!confirmationResult || !verificationCode) {
+      if (!phoneNumber || !verificationCode) {
           toast({ variant: "destructive", title: "Error", description: "Por favor, ingresa el código de verificación." });
           setLoading(false);
           return;
       }
 
       try {
-          await confirmationResult.confirm(verificationCode);
-          toast({ title: "¡Teléfono Verificado!", description: "Tu número ha sido verificado exitosamente." });
-          nextStep();
+           const functions = getFunctions();
+           const verifySmsCode = httpsCallable(functions, 'verifySmsCode');
+           const result: any = await verifySmsCode({ phoneNumber, code: verificationCode });
+
+           if (result.data.success) {
+             toast({ title: "¡Teléfono Verificado!", description: "Tu número ha sido verificado exitosamente." });
+             nextStep();
+           } else {
+             throw new Error(result.data.message || 'El código es incorrecto.');
+           }
       } catch (error: any) {
-          console.error("Error verifying code:", error);
-          toast({ variant: "destructive", title: "Código Incorrecto", description: "El código ingresado no es válido. Inténtalo de nuevo." });
+          console.error("Error verifying code via Cloud Function:", error);
+          toast({ variant: "destructive", title: "Código Incorrecto", description: error.message });
       } finally {
           setLoading(false);
       }
@@ -129,7 +119,6 @@ function ApplyForm() {
 
   return (
      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
-        <div id="recaptcha-container" ref={recaptchaContainerRef}></div>
         <div className="mb-6 text-center">
              <div className="inline-block mx-auto p-3 rounded-full mb-4">
                 <LogoIcon className="h-12 w-12" />
@@ -165,25 +154,22 @@ function ApplyForm() {
             <div className="flex flex-col items-center justify-center text-center space-y-4 pt-6">
               <Phone className="h-12 w-12 text-primary" />
               <CardTitle>Verificación Telefónica</CardTitle>
-              <Alert>
-                <AlertTitle>¡Importante!</AlertTitle>
-                <AlertDescription>
-                    Ingresa tu número de teléfono con el código de país. Ejemplo: +18091234567
-                </AlertDescription>
-              </Alert>
+              <CardDescription>
+                  Ingresa tu número para enviarte un código de verificación.
+              </CardDescription>
               <div className="flex w-full max-w-sm items-center space-x-2">
                 <Input 
                     type="tel" 
-                    placeholder="+18091234567" 
+                    placeholder="8091234567" 
                     value={phoneNumber} 
                     onChange={e => setPhoneNumber(e.target.value)}
-                    disabled={!!confirmationResult}
+                    disabled={codeSent}
                 />
-                <Button type="button" onClick={onSendCode} disabled={loading || !!confirmationResult}>
+                <Button type="button" onClick={onSendCode} disabled={loading || codeSent}>
                     {loading ? <Loader2 className="animate-spin" /> : "Enviar Código"}
                 </Button>
               </div>
-              {confirmationResult && (
+              {codeSent && (
                 <div className="flex w-full max-w-xs items-center space-x-2 pt-4">
                     <MessageSquare className="text-muted-foreground" />
                     <Input
@@ -233,7 +219,7 @@ function ApplyForm() {
               </Button>
             )}
             {currentStep === 2 && (
-              <Button onClick={onVerifyCode} disabled={loading || !confirmationResult}>
+              <Button onClick={onVerifyCode} disabled={loading || !codeSent}>
                  {loading ? <Loader2 className="animate-spin"/> : "Verificar y Continuar"}
                  {!loading && <CheckCircle className="ml-2" />}
               </Button>
@@ -277,12 +263,6 @@ function ApplyPageFallback() {
     )
 }
 
-declare global {
-  interface Window {
-    recaptchaVerifier: RecaptchaVerifier;
-  }
-}
-
 export default function ApplyPage() {
     return (
         <Suspense fallback={<ApplyPageFallback />}>
@@ -290,3 +270,5 @@ export default function ApplyPage() {
         </Suspense>
     )
 }
+
+    
