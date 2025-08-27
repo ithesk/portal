@@ -16,6 +16,7 @@ import {
   LifeBuoy,
   Loader,
   FileText,
+  WifiOff,
 } from "lucide-react";
 
 import {
@@ -36,6 +37,7 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogoIcon } from "@/components/shared/logo";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 export default function DashboardLayout({
@@ -46,12 +48,31 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [user, loading, error] = useAuthState(auth);
+  const [isOffline, setIsOffline] = useState(false);
   
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Set initial state
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setIsOffline(true);
+    }
+
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
 
   const navItems = [
@@ -191,6 +212,15 @@ export default function DashboardLayout({
           </DropdownMenu>
         </header>
         <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
+           {isOffline && (
+            <Alert variant="destructive" className="mb-4">
+              <WifiOff className="h-4 w-4" />
+              <AlertTitle>Sin Conexión a Internet</AlertTitle>
+              <AlertDescription>
+                No tienes conexión. Algunas funcionalidades pueden no estar disponibles.
+              </AlertDescription>
+            </Alert>
+          )}
           {children}
         </main>
       </div>
