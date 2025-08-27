@@ -19,11 +19,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 export default function CalculatorPage() {
   const [itemValue, setItemValue] = useState(12500);
@@ -37,10 +35,12 @@ export default function CalculatorPage() {
     const fetchSettings = async () => {
         setLoading(true);
         try {
-            const settingsRef = doc(db, "config", "financing");
-            const docSnap = await getDoc(settingsRef);
-            if (docSnap.exists()) {
-                setInterestRate(docSnap.data().interestRate);
+            const functions = getFunctions();
+            const getFinancingSettings = httpsCallable(functions, 'getFinancingSettings');
+            const result: any = await getFinancingSettings();
+            
+            if (result.data && result.data.interestRate) {
+                 setInterestRate(result.data.interestRate);
             } else {
                  toast({ variant: 'destructive', title: 'Advertencia', description: 'No se encontró configuración de intereses. Usando valores por defecto.'});
             }

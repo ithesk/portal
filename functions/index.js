@@ -317,3 +317,46 @@ exports.listAllUsers = regionalFunctions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('internal', 'Unable to list users', error.message);
   }
 });
+
+
+exports.getFinancingSettings = regionalFunctions.https.onCall(async (data, context) => {
+    const settingsRef = db.collection("config").doc("financing");
+    try {
+        const docSnap = await settingsRef.get();
+        if (docSnap.exists()) {
+            return docSnap.data();
+        } else {
+            // Return a default if it doesn't exist
+            return { interestRate: 0.525 };
+        }
+    } catch (error) {
+        console.error("[SETTINGS_FUNCTION] Error getting settings:", error);
+        throw new functions.https.HttpsError("internal", "Could not retrieve settings.");
+    }
+});
+
+exports.saveFinancingSettings = regionalFunctions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "You must be logged in to save settings.");
+    }
+
+    // Optional: Add admin role check for extra security
+    // const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    // if (!userDoc.exists || userDoc.data().role !== 'Admin') {
+    //   throw new functions.https.HttpsError('permission-denied', 'Only admins can save settings.');
+    // }
+    
+    const { interestRate } = data;
+    if (typeof interestRate !== 'number' || interestRate < 0) {
+        throw new functions.https.HttpsError("invalid-argument", "Invalid interest rate provided.");
+    }
+
+    const settingsRef = db.collection("config").doc("financing");
+    try {
+        await settingsRef.set({ interestRate }, { merge: true });
+        return { success: true, message: "Settings saved successfully." };
+    } catch (error) {
+        console.error("[SETTINGS_FUNCTION] Error saving settings:", error);
+        throw new functions.https.HttpsError("internal", "Could not save settings.");
+    }
+});

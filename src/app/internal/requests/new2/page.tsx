@@ -249,14 +249,14 @@ function NewRequestForm() {
     setSmsLoading(true);
     
     // Normalize phone number
-    let formattedPhone = phone.replace(/\D/g, ''); // Remove non-digits
-    if (formattedPhone.length === 10) { // Assume local number without country code
-        formattedPhone = `+1${formattedPhone}`;
-    } else if (!formattedPhone.startsWith('+')) {
-        formattedPhone = `+${formattedPhone}`;
+    let phoneToSend = phone.replace(/\D/g, ''); // Remove non-digits
+    if (phoneToSend.length === 10) { // Assume local number without country code
+        phoneToSend = `+1${phoneToSend}`;
+    } else if (!phoneToSend.startsWith('+')) {
+        phoneToSend = `+${phoneToSend}`;
     }
 
-    if (!formattedPhone.startsWith('+1')) { // Basic check for Dominican Republic context
+    if (!phoneToSend.startsWith('+1')) { // Basic check for Dominican Republic context
         toast({ variant: "destructive", title: "Número Inválido", description: "Asegúrate que el número tenga código de país (Ej: +1809...)." });
         setSmsLoading(false);
         return;
@@ -265,9 +265,9 @@ function NewRequestForm() {
     try {
         setupRecaptcha();
         const appVerifier = window.recaptchaVerifier;
-        const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
+        const result = await signInWithPhoneNumber(auth, phoneToSend, appVerifier);
         setConfirmationResult(result);
-        toast({ title: "Código Enviado", description: `Se ha enviado un código a ${formattedPhone}.` });
+        toast({ title: "Código Enviado", description: `Se ha enviado un código a ${phoneToSend}.` });
     } catch (error: any) {
         console.error("Error sending SMS:", error);
         toast({ variant: "destructive", title: "Error al Enviar Código", description: error.message });
@@ -328,14 +328,15 @@ function NewRequestForm() {
   useEffect(() => {
     const fetchSettings = async () => {
         try {
-            const settingsRef = doc(db, "config", "financing");
-            const docSnap = await getDoc(settingsRef);
-            if (docSnap.exists()) {
-                setInterestRate(docSnap.data().interestRate);
+            const functions = getFunctions();
+            const getFinancingSettings = httpsCallable(functions, 'getFinancingSettings');
+            const result: any = await getFinancingSettings();
+            if (result.data && typeof result.data.interestRate === 'number') {
+                setInterestRate(result.data.interestRate);
             }
         } catch (error) {
             console.error("Could not fetch financing settings, using default.", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar la configuración de intereses. Usando valores por defecto.'});
+            toast({ variant: 'destructive', title: 'Error de Configuración', description: 'No se pudo cargar la tasa de interés. Usando valores por defecto.'});
         }
     }
     fetchSettings();
@@ -397,8 +398,9 @@ function NewRequestForm() {
         setLoading(true);
         try {
             // This is a new user, create their document. Using cedula as ID for simplicity in this flow.
-            const userDocRef = doc(db, "users", verifiedClientData.cedula!);
+            const userDocRef = doc(collection(db, "users"));
             const userData = {
+                uid: userDocRef.id, // Store the auto-generated ID as uid
                 name: verifiedClientData.name,
                 cedula: verifiedClientData.cedula,
                 email: email,
