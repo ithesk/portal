@@ -25,6 +25,7 @@ import {
   UserPlus,
   Mail,
   Phone,
+  Home,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,6 +71,7 @@ interface Client {
     cedula: string;
     email: string;
     phone: string;
+    address?: string;
 }
 
 // Helper to convert File to Base64
@@ -103,6 +105,7 @@ function NewRequestForm() {
   const idImageRef = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
 
   const handleClientSearch = useCallback(async () => {
     if (cedulaInput.length !== 11) {
@@ -262,20 +265,22 @@ function NewRequestForm() {
             return;
         }
         // If client is new and verified, we need to save them
-        if (verifiedClientData && !email && !phone) {
+        if (verifiedClientData && (!email || !phone)) {
            toast({ variant: "destructive", title: "Datos de Contacto Requeridos", description: "Por favor, ingresa el correo y teléfono del nuevo cliente." });
            return;
         }
         
         setLoading(true);
         try {
-            // This is a new user, create their document
+            // This is a new user, create their document in a `users` subcollection.
+            // Using cedula as ID for simplicity in this flow, but for real apps a UID from Firebase Auth is better.
             const userDocRef = doc(db, "users", verifiedClientData.cedula!);
             const userData = {
                 name: verifiedClientData.name,
                 cedula: verifiedClientData.cedula,
                 email: email,
                 phone: phone,
+                address: address, // Save the address
                 role: "Cliente",
                 status: "Activo",
                 since: new Date().toLocaleDateString('es-DO'),
@@ -285,7 +290,7 @@ function NewRequestForm() {
             
             // Set the newly created client as the one for the request
             setClientFound({
-                id: verifiedClientData.cedula!,
+                id: userDocRef.id,
                 ...userData
             });
             toast({ title: "Cliente Creado", description: "El nuevo cliente ha sido guardado." });
@@ -434,7 +439,7 @@ function NewRequestForm() {
                                     <Card className="mt-6">
                                         <CardHeader>
                                             <CardTitle>Completa los Datos del Cliente</CardTitle>
-                                            <CardDescription>Ingresa el correo y teléfono para el nuevo cliente: <b>{verifiedClientData.name}</b></CardDescription>
+                                            <CardDescription>Ingresa los datos de contacto para el nuevo cliente: <b>{verifiedClientData.name}</b></CardDescription>
                                         </CardHeader>
                                         <CardContent className="space-y-4">
                                             <div className="space-y-2">
@@ -444,6 +449,10 @@ function NewRequestForm() {
                                              <div className="space-y-2">
                                                 <Label htmlFor="phone"><Phone className="inline mr-2"/> Teléfono</Label>
                                                 <Input id="phone" type="tel" placeholder="809-555-1234" value={phone} onChange={e => setPhone(e.target.value)} required />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="address"><Home className="inline mr-2"/> Dirección</Label>
+                                                <Input id="address" type="text" placeholder="Calle Principal #123, Santo Domingo" value={address} onChange={e => setAddress(e.target.value)} />
                                             </div>
                                         </CardContent>
                                     </Card>
