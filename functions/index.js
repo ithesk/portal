@@ -152,69 +152,52 @@ exports.runIdentityCheck = regionalFunctions.https.onCall(async (data, context) 
     }
 
     const apiKey = functions.config().verification.api_key;
-    console.log("[ID_CHECK_FUNCTION] API Key:", apiKey);
     if (!apiKey) {
       console.error("[ID_CHECK_FUNCTION] CRITICAL: Missing VERIFICATION_API_KEY in environment configuration.");
       throw new functions.https.HttpsError("internal", "Server configuration is incomplete.");
     }
 
-    // CREAR FORMDATA SIN API KEY (va como header)
     const formData = new FormData();
     formData.append("cedula", verificationData.cedula);
-    // ❌ QUITAR ESTA LÍNEA: formData.append("api_key", apiKey);
-
+    
     console.log("[ID_CHECK_FUNCTION] Fetching ID image from URL:", verificationData.idImageUrl);
     const idImageResponse = await fetch(verificationData.idImageUrl);
     
-    // Verificar que la imagen se descargó correctamente
     if (!idImageResponse.ok) {
       throw new functions.https.HttpsError("internal", `Failed to fetch ID image: ${idImageResponse.statusText}`);
     }
     
     const idImageBuffer = await idImageResponse.buffer();
     
-    // SINTAXIS CORRECTA PARA form-data
     formData.append("id_image", idImageBuffer, {
       filename: "id_image.jpg",
       contentType: idImageResponse.headers.get("content-type") || "image/jpeg"
     });
     
-    console.log("me detego aqui");
     console.log("[ID_CHECK_FUNCTION] Fetching selfie image from URL:", verificationData.selfieUrl);
     const faceImageResponse = await fetch(verificationData.selfieUrl);
     
-    // Verificar que la imagen se descargó correctamente
     if (!faceImageResponse.ok) {
       throw new functions.https.HttpsError("internal", `Failed to fetch selfie image: ${faceImageResponse.statusText}`);
     }
     
     const faceImageBuffer = await faceImageResponse.buffer();
     
-    // SINTAXIS CORRECTA PARA form-data
     formData.append("face_image", faceImageBuffer, {
       filename: "face_image.jpg", 
       contentType: faceImageResponse.headers.get("content-type") || "image/jpeg"
     });
 
-    // DEBUG: Verificar qué se está enviando
-    console.log("[DEBUG] FormData fields (should NOT include api_key):");
-    console.log("- cedula:", verificationData.cedula);
-    console.log("- id_image: Buffer", idImageBuffer.length, "bytes");
-    console.log("- face_image: Buffer", faceImageBuffer.length, "bytes");
-
     const apiUrl = "http://93.127.132.230:8000/verify";
     
     console.log(`[ID_CHECK_FUNCTION] Calling external API at ${apiUrl} for verificationId: ${verificationId}`);
     
-    // ✅ AGREGAR API KEY COMO HEADER
     const requestHeaders = {
       ...formData.getHeaders(),
-      'api-key': apiKey,  // ← ESTA ES LA LÍNEA CLAVE
+      'api-key': apiKey,
       'User-Agent': 'Firebase-Function/1.0'
     };
     
-    console.log("[ID_CHECK_FUNCTION] Request Headers:", JSON.stringify(requestHeaders, null, 2));
-
     const response = await fetch(apiUrl, {
       method: "POST",
       body: formData,
@@ -240,10 +223,29 @@ exports.runIdentityCheck = regionalFunctions.https.onCall(async (data, context) 
       const userDocRef = db.collection("users").doc(responseData.document_info.cedula);
       const userSnap = await userDocRef.get();
 
+      // Extract all relevant info from the API response
+      const { 
+        nombre_completo, 
+        cedula, 
+        fecha_nacimiento, 
+        lugar_nacimiento, 
+        nacionalidad, 
+        sexo, 
+        estado_civil, 
+        ocupacion, 
+        fecha_expiracion 
+      } = responseData.document_info;
+
       const profileData = {
-        name: responseData.document_info.nombre_completo,
-        cedula: responseData.document_info.cedula,
-        birthDate: responseData.document_info.fecha_nacimiento,
+        name: nombre_completo,
+        cedula: cedula,
+        birthDate: fecha_nacimiento,
+        birthPlace: lugar_nacimiento,
+        nationality: nacionalidad,
+        gender: sexo,
+        civilStatus: estado_civil,
+        occupation: ocupacion,
+        idExpirationDate: fecha_expiracion,
       };
 
       if (userSnap.exists) {
@@ -282,3 +284,5 @@ exports.runIdentityCheck = regionalFunctions.https.onCall(async (data, context) 
     throw new functions.https.HttpsError("internal", "An unexpected error occurred during verification.");
   }
 });
+
+    
