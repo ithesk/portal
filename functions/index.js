@@ -50,7 +50,7 @@ exports.sendSmsVerification = regionalFunctions.https.onCall(async (data, contex
     const verificationRef = db.collection("smsVerifications").doc(phoneNumber);
     await verificationRef.set({
         hashedCode: hashedCode,
-        expiresAt: Timestamp.fromDate(expiresAt),
+        expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
         attempts: 0
     });
 
@@ -470,5 +470,7 @@ exports.saveFinancingSettings = regionalFunctions.https.onCall(async (data, cont
         throw new functions.https.HttpsError("internal", "Could not save settings.");
     }
 });
+
+    
 
     
