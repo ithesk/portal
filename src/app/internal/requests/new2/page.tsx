@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect, Suspense } from "react";
@@ -20,6 +21,10 @@ import {
   QrCode,
   UserCheck,
   RefreshCw,
+  Search,
+  UserPlus,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,14 +50,15 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 const steps = [
-  { id: 1, title: "Verificación de Identidad" },
+  { id: 1, title: "Buscar o Verificar Cliente" },
   { id: 2, title: "Detalles del Financiamiento" },
   { id: 3, title: "Enlace MDM" },
   { id: 4, title: "Contrato y Firma" },
@@ -63,7 +69,7 @@ interface Client {
     name: string;
     cedula: string;
     email: string;
-    phone?: string;
+    phone: string;
 }
 
 // Helper to convert File to Base64
@@ -80,17 +86,51 @@ function NewRequestForm() {
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   
-  // Step 1: Client & Identity Info
+  // Step 1: Client Info
   const [cedulaInput, setCedulaInput] = useState("");
+  const [isSearchingClient, setIsSearchingClient] = useState(false);
+  const [clientFound, setClientFound] = useState<Client | null>(null);
+  const [clientSearchPerformed, setClientSearchPerformed] = useState(false);
+  
+  // Step 1.5: Verification for new client
   const [idImage, setIdImage] = useState<File | null>(null);
   const [idImageUrl, setIdImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [verificationId, setVerificationId] = useState<string | null>(null);
   const [verificationData, setVerificationData] = useState<any>(null);
-  const [verifiedClient, setVerifiedClient] = useState<Client | null>(null);
+  const [verifiedClientData, setVerifiedClientData] = useState<Partial<Client> | null>(null);
   const idImageRef = useRef<HTMLInputElement>(null);
-  
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+
+
+  const handleClientSearch = async () => {
+    if (!cedulaInput) {
+        toast({ variant: "destructive", title: "Cédula requerida", description: "Ingresa un número de cédula para buscar." });
+        return;
+    }
+    setIsSearchingClient(true);
+    setClientSearchPerformed(true);
+    try {
+        const q = query(collection(db, "users"), where("cedula", "==", cedulaInput));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            const clientDoc = querySnapshot.docs[0];
+            setClientFound({ id: clientDoc.id, ...clientDoc.data() } as Client);
+            toast({ title: "Cliente Encontrado", description: `Se cargaron los datos de ${clientDoc.data().name}.` });
+        } else {
+            setClientFound(null);
+            toast({ title: "Cliente No Encontrado", description: "Este cliente es nuevo. Procede con la verificación de identidad.", duration: 5000 });
+        }
+    } catch (error) {
+        console.error("Error searching client:", error);
+        toast({ variant: "destructive", title: "Error", description: "No se pudo realizar la búsqueda." });
+    } finally {
+        setIsSearchingClient(false);
+    }
+  }
 
   const handleCheckVerificationStatus = async () => {
     if (!verificationId) return;
@@ -102,21 +142,19 @@ function NewRequestForm() {
 
         if (docSnap.exists()) {
             const data = docSnap.data();
-            if (data && data.status === 'completed') {
+            if (data?.status === 'completed') {
                 setVerificationData(data.apiResponse);
-                if (data.apiResponse.verification_passed) {
-                    const clientInfo: Client = {
-                        id: data.apiResponse.document_info.cedula,
+                if (data.apiResponse?.verification_passed) {
+                    const clientInfo: Partial<Client> = {
                         cedula: data.apiResponse.document_info.cedula,
                         name: data.apiResponse.document_info.nombre_completo,
-                        email: "", // User may need to input this later
                     };
-                    setVerifiedClient(clientInfo);
+                    setVerifiedClientData(clientInfo);
                     toast({ title: "¡Verificación Completada!", description: `${clientInfo.name} ha sido verificado.` });
                 } else {
                      toast({ variant: "destructive", title: "Verificación Fallida", description: data.apiResponse.verification_details?.error || "Los datos biométricos no coincidieron." });
                 }
-            } else if (data && data.status === 'failed') {
+            } else if (data?.status === 'failed') {
                  toast({ variant: "destructive", title: "Verificación Fallida", description: data.error || "La verificación no pudo ser completada." });
             } else {
                 toast({ title: "Aún Pendiente", description: "El cliente todavía no ha completado el proceso de selfie." });
@@ -129,7 +167,6 @@ function NewRequestForm() {
         setIsCheckingStatus(false);
     }
   };
-
 
   const handleGenerateQR = async () => {
     if (!cedulaInput || !idImage) {
@@ -199,8 +236,57 @@ function NewRequestForm() {
 
   const progress = ((currentStep -1) / (steps.length - 1)) * 100;
 
-  const nextStep = () =>
-    setCurrentStep((prev) => Math.min(prev + 1, steps.length));
+  const nextStep = async () => {
+    if (currentStep === 1) {
+        if (clientFound) {
+            setCurrentStep(2);
+            return;
+        }
+        if (!verifiedClientData) {
+            toast({ variant: "destructive", title: "Verificación Requerida", description: "Debes completar la verificación de identidad del cliente." });
+            return;
+        }
+        // If client is new and verified, we need to save them
+        if (verifiedClientData && !email && !phone) {
+           toast({ variant: "destructive", title: "Datos de Contacto Requeridos", description: "Por favor, ingresa el correo y teléfono del nuevo cliente." });
+           return;
+        }
+        
+        setLoading(true);
+        try {
+            // This is a new user, create their document
+            const userDocRef = doc(db, "users", verifiedClientData.cedula!);
+            const userData = {
+                name: verifiedClientData.name,
+                cedula: verifiedClientData.cedula,
+                email: email,
+                phone: phone,
+                role: "Cliente",
+                status: "Activo",
+                since: new Date().toLocaleDateString('es-DO'),
+                createdAt: serverTimestamp(),
+            }
+            await setDoc(userDocRef, userData);
+            
+            // Set the newly created client as the one for the request
+            setClientFound({
+                id: verifiedClientData.cedula!,
+                ...userData
+            });
+            toast({ title: "Cliente Creado", description: "El nuevo cliente ha sido guardado." });
+            setCurrentStep(2);
+            
+        } catch (error) {
+            console.error("Error creating new client", error);
+            toast({ variant: "destructive", title: "Error", description: "No se pudo guardar el nuevo cliente." });
+        } finally {
+            setLoading(false);
+        }
+    } else {
+        setCurrentStep((prev) => Math.min(prev + 1, steps.length));
+    }
+  }
+  
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
   
   const clearSignature = () => {
@@ -215,13 +301,8 @@ function NewRequestForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (currentStep === 1 && !verifiedClient) {
-        toast({ variant: "destructive", title: "Verificación Requerida", description: "Debes completar la verificación de identidad del cliente." });
-        return;
-    }
-
     if (currentStep !== steps.length) {
-        nextStep();
+        await nextStep();
         return; 
     }
     
@@ -232,33 +313,19 @@ function NewRequestForm() {
         setLoading(false);
         return;
     }
+    
+    const finalClient = clientFound;
+    if (!finalClient) {
+        toast({ variant: "destructive", title: "Error de Cliente", description: "No se han encontrado los datos del cliente para finalizar." });
+        setLoading(false);
+        return;
+    }
 
     try {
-        let userId = verifiedClient?.id;
-
-        // Check if user exists, if not, create one
-        const userDocRef = doc(db, "users", verifiedClient!.cedula);
-        const userSnap = await getDoc(userDocRef);
-        if (!userSnap.exists()) {
-             await setDoc(userDocRef, {
-                name: verifiedClient!.name,
-                cedula: verifiedClient!.cedula,
-                email: "", // User might need to claim this account
-                phone: "",
-                role: "Cliente",
-                status: "Activo",
-                since: new Date().toLocaleDateString('es-DO'),
-                createdAt: new Date().toISOString(),
-             });
-             userId = verifiedClient!.cedula;
-        } else {
-             userId = userSnap.id;
-        }
-
         const requestDocRef = await addDoc(collection(db, "requests"), {
-            userId: userId,
-            cedula: verifiedClient!.cedula,
-            client: verifiedClient!.name,
+            userId: finalClient.id,
+            cedula: finalClient.cedula,
+            client: finalClient.name,
             itemType,
             itemValue,
             initialPercentage,
@@ -275,17 +342,20 @@ function NewRequestForm() {
             verificationData: verificationData,
         });
         
-        await addDoc(collection(db, "equipment"), {
-            userId: userId,
+        // Use a separate write for the equipment to avoid batch complexity here
+        const equipmentDocRef = doc(collection(db, "equipment"));
+        await setDoc(equipmentDocRef, {
+            id: equipmentDocRef.id,
+            userId: finalClient.id,
             requestId: requestDocRef.id,
-            cedula: verifiedClient!.cedula,
+            cedula: finalClient.cedula,
             name: itemType === 'phone' ? 'Teléfono' : 'Tablet',
             status: "Financiado",
             progress: 0,
             imageUrl: "https://placehold.co/600x400.png",
             aiHint: itemType,
             details: `Financiamiento creado el ${new Date().toLocaleDateString()}. IMEI: ${imei || 'N/A'}`,
-            client: verifiedClient!.name,
+            client: finalClient.name,
             createdAt: serverTimestamp(),
         });
 
@@ -300,6 +370,8 @@ function NewRequestForm() {
     }
   };
 
+  const activeClientName = clientFound?.name || verifiedClientData?.name || "Cliente";
+
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -313,64 +385,92 @@ function NewRequestForm() {
           </CardHeader>
           <CardContent className="min-h-[450px]">
             {currentStep === 1 && (
-               <div className="flex flex-col md:flex-row gap-8 pt-6">
-                 <div className="flex-1 space-y-6">
-                   <CardTitle>Datos de Identificación</CardTitle>
-                   <CardDescription>
-                       Ingresa la cédula del cliente y sube una foto clara del documento.
-                   </CardDescription>
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="cedula">Número de Cédula</Label>
-                            <Input id="cedula" placeholder="001-0000000-0" value={cedulaInput} onChange={(e) => setCedulaInput(e.target.value)} disabled={!!verificationId}/>
-                        </div>
-                        <div className="space-y-2">
-                           <Label htmlFor="id-image">Foto de la Cédula (Frente)</Label>
-                           <Input id="id-image" type="file" accept="image/*" ref={idImageRef} onChange={handleIdImageChange} className="hidden" disabled={!!verificationId}/>
-                            <Button variant="outline" className="w-full" type="button" onClick={() => idImageRef.current?.click()} disabled={!!verificationId}>
-                                <Camera className="mr-2" /> {idImage ? idImage.name : "Subir Foto"}
-                            </Button>
-                        </div>
-                        {idImageUrl && <img src={idImageUrl} alt="Preview Cédula" className="mt-2 rounded-md border max-h-32 mx-auto" />}
-                         <Button className="w-full" type="button" onClick={handleGenerateQR} disabled={isUploading || !!verificationId}>
-                            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            <QrCode className="mr-2" /> Generar QR para Selfie
-                         </Button>
-                    </div>
-                 </div>
-                 <div className="flex-1 flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-4 min-h-[300px]">
-                    {verificationId ? (
-                        verifiedClient ? (
-                            <Card className="w-full bg-green-50 border-green-200">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center text-green-800"><UserCheck className="mr-2"/> Cliente Verificado</CardTitle>
-                                </CardHeader>
-                                <CardContent className="text-green-900 space-y-1">
-                                    <p><b>Nombre:</b> {verifiedClient.name}</p>
-                                    <p><b>Cédula:</b> {verifiedClient.cedula}</p>
-                                </CardContent>
-                            </Card>
+               <div className="pt-6">
+                <CardTitle>Buscar Cliente por Cédula</CardTitle>
+                <div className="flex w-full max-w-sm items-center space-x-2 mt-4">
+                    <Input id="cedula" placeholder="001-0000000-0" value={cedulaInput} onChange={(e) => setCedulaInput(e.target.value)} disabled={isSearchingClient || !!clientFound}/>
+                    <Button type="button" onClick={handleClientSearch} disabled={isSearchingClient || !!clientFound}>
+                       {isSearchingClient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                       Buscar
+                    </Button>
+                </div>
+
+                {clientSearchPerformed && (
+                    <div className="mt-8">
+                        {clientFound ? (
+                            <Alert variant="default" className="bg-green-50 border-green-200">
+                                <UserCheck className="h-4 w-4 !text-green-700" />
+                                <AlertTitle className="text-green-800">Cliente Encontrado</AlertTitle>
+                                <AlertDescription className="text-green-900">
+                                   Se usarán los datos de <b>{clientFound.name}</b> para esta solicitud. Puedes continuar al siguiente paso.
+                                </AlertDescription>
+                            </Alert>
                         ) : (
-                            <>
-                                <h3 className="text-lg font-semibold">Esperando Selfie del Cliente...</h3>
-                                <p className="text-sm text-muted-foreground text-center">Pídele al cliente que escanee el código QR y luego presiona "Verificar Estado".</p>
-                                <QRCode value={`${window.location.origin}/verify/${verificationId}`} size={160} />
-                                <div className="pt-4 flex items-center gap-2 text-muted-foreground">
-                                    <Button onClick={handleCheckVerificationStatus} disabled={isCheckingStatus}>
-                                        {isCheckingStatus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        <RefreshCw className="mr-2 h-4 w-4" />
-                                        Verificar Estado
-                                    </Button>
-                                </div>
-                            </>
-                        )
-                    ) : (
-                         <div className="text-center text-muted-foreground">
-                            <QrCode className="mx-auto h-12 w-12" />
-                            <p className="mt-2">El código QR para la verificación del cliente aparecerá aquí.</p>
-                        </div>
-                    )}
-                 </div>
+                             <div>
+                                <Alert variant="destructive" className="bg-amber-50 border-amber-200">
+                                    <UserPlus className="h-4 w-4 !text-amber-700" />
+                                    <AlertTitle className="text-amber-800">Cliente Nuevo</AlertTitle>
+                                    <AlertDescription className="text-amber-900">
+                                       Este cliente no existe. Completa la verificación de identidad para crearlo.
+                                    </AlertDescription>
+                                </Alert>
+                                
+                                {verifiedClientData ? (
+                                    <Card className="mt-6">
+                                        <CardHeader>
+                                            <CardTitle>Completa los Datos del Cliente</CardTitle>
+                                            <CardDescription>Ingresa el correo y teléfono para el nuevo cliente: <b>{verifiedClientData.name}</b></CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="email"><Mail className="inline mr-2"/> Correo Electrónico</Label>
+                                                <Input id="email" type="email" placeholder="cliente@correo.com" value={email} onChange={e => setEmail(e.target.value)} required />
+                                            </div>
+                                             <div className="space-y-2">
+                                                <Label htmlFor="phone"><Phone className="inline mr-2"/> Teléfono</Label>
+                                                <Input id="phone" type="tel" placeholder="809-555-1234" value={phone} onChange={e => setPhone(e.target.value)} required />
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ) : (
+                                    <div className="flex flex-col md:flex-row gap-8 pt-6">
+                                        <div className="flex-1 space-y-6">
+                                            <div className="space-y-2">
+                                            <Label htmlFor="id-image">Foto de la Cédula (Frente)</Label>
+                                            <Input id="id-image" type="file" accept="image/*" ref={idImageRef} onChange={handleIdImageChange} className="hidden" disabled={!!verificationId}/>
+                                                <Button variant="outline" className="w-full" type="button" onClick={() => idImageRef.current?.click()} disabled={!!verificationId}>
+                                                    <Camera className="mr-2" /> {idImage ? idImage.name : "Subir Foto"}
+                                                </Button>
+                                            </div>
+                                            {idImageUrl && <img src={idImageUrl} alt="Preview Cédula" className="mt-2 rounded-md border max-h-32 mx-auto" />}
+                                            <Button className="w-full" type="button" onClick={handleGenerateQR} disabled={isUploading || !!verificationId}>
+                                                {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                <QrCode className="mr-2" /> Generar QR para Selfie
+                                            </Button>
+                                        </div>
+                                        <div className="flex-1 flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-4 min-h-[250px]">
+                                            {verificationId ? (
+                                                <>
+                                                    <h3 className="text-lg font-semibold">Esperando Selfie...</h3>
+                                                    <QRCode value={`${window.location.origin}/verify/${verificationId}`} size={128} />
+                                                    <Button onClick={handleCheckVerificationStatus} disabled={isCheckingStatus} size="sm" variant="secondary">
+                                                        {isCheckingStatus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                        Verificar Estado
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <div className="text-center text-muted-foreground">
+                                                    <QrCode className="mx-auto h-12 w-12" />
+                                                    <p className="mt-2 text-sm">El código QR aparecerá aquí.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                             </div>
+                        )}
+                    </div>
+                )}
                </div>
             )}
             
@@ -480,7 +580,7 @@ function NewRequestForm() {
                 <div>
                   <CardTitle className="flex items-center mb-4"><FileSignature className="mr-2" /> Contrato</CardTitle>
                   <div className="border rounded-lg p-4 h-[350px] overflow-y-auto text-sm space-y-4 bg-muted/50">
-                      <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy", { locale: es })}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente <strong>{verifiedClient?.name}</strong> con C.I. <strong>{verifiedClient?.cedula}</strong>.</p>
+                      <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy", { locale: es })}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente <strong>{activeClientName}</strong> con C.I. <strong>{clientFound?.cedula || verifiedClientData?.cedula}</strong>.</p>
                       <p>El cliente solicita el financiamiento de un <strong>{itemType || 'equipo'}</strong> valorado en <strong>RD$ {itemValue.toFixed(2)}</strong>.</p>
                       <p>El cliente se compromete a pagar una inicial de <strong>RD$ {initialPayment.toFixed(2)}</strong> ({initialPercentage}%) y el monto restante de <strong>RD$ {financingAmount.toFixed(2)}</strong> más intereses de <strong>RD$ {totalInterest.toFixed(2)}</strong> será pagado en <strong>{installments} cuotas quincenales</strong> de <strong>RD$ {biweeklyPayment.toFixed(2)}</strong> cada una.</p>
                       <p className="pt-4">La falta de pago resultará en el bloqueo del equipo con IMEI <strong>{imei || "PENDIENTE"}</strong>.</p>
@@ -502,14 +602,10 @@ function NewRequestForm() {
               {currentStep === 1 && (<Button variant="ghost" asChild><Link href="/internal/dashboard">Cancelar</Link></Button>)}
             </div>
             <div>
-              {currentStep < steps.length ? (
-                <Button type="submit">Siguiente <ChevronRight className="ml-2" /></Button>
-              ) : (
-                <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Completar Solicitud <CheckCircle className="ml-2" />
-                </Button>
-              )}
+                  {currentStep < steps.length ? <>Siguiente <ChevronRight className="ml-2" /></> : <>Completar Solicitud <CheckCircle className="ml-2" /></>}
+              </Button>
             </div>
           </CardFooter>
         </Card>
