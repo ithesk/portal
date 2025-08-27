@@ -238,7 +238,7 @@ function NewRequestForm() {
   const initialPayment = itemValue * (initialPercentage / 100);
   const financingAmount = itemValue - initialPayment;
   const interestRate = 0.525;
-  const totalInterest = financingAmount * totalInterest;
+  const totalInterest = financingAmount * interestRate;
   const totalToPayInInstallments = financingAmount + totalInterest;
   const biweeklyPayment = installments > 0 ? totalToPayInInstallments / installments : 0;
   const totalPaid = initialPayment + totalToPayInInstallments;
@@ -638,4 +638,3 @@ export default function NewRequestPage() {
     );
 }
 
-    
