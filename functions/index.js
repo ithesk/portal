@@ -360,3 +360,5 @@ exports.saveFinancingSettings = regionalFunctions.https.onCall(async (data, cont
         throw new functions.https.HttpsError("internal", "Could not save settings.");
     }
 });
+
+    
