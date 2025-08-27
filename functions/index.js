@@ -6,6 +6,7 @@ const { getStorage } = require("firebase-admin/storage");
 const fetch = require("node-fetch");
 const FormData = require("form-data"); // <--- IMPORTACIÓN CORREGIDA
 const { Storage } = require("@google-cloud/storage");
+const admin = require("firebase-admin");
 
 
 // Use a specific region for your functions
@@ -285,4 +286,34 @@ exports.runIdentityCheck = regionalFunctions.https.onCall(async (data, context) 
   }
 });
 
+
+exports.listAllUsers = regionalFunctions.https.onCall(async (data, context) => {
+  // Check if the user is authenticated and is an admin
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+  }
+
+  const callerUid = context.auth.uid;
+  const userDoc = await db.collection('users').doc(callerUid).get();
+
+  if (!userDoc.exists || userDoc.data().role !== 'Admin') {
+    throw new functions.https.HttpsError('permission-denied', 'Only admins can list users.');
+  }
+
+  // If the user is an admin, proceed to list all users
+  try {
+    const listUsersResult = await admin.auth().listUsers(1000); // 1000 is the max limit per page
     
+    // For simplicity, we get users from Firestore collection to have all data like role, name, etc.
+    const usersCollection = await db.collection('users').get();
+    const users = usersCollection.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    return { users };
+  } catch (error) {
+    console.error('Error listing users:', error);
+    throw new functions.https.HttpsError('internal', 'Unable to list users', error.message);
+  }
+});

@@ -29,7 +29,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { collection, getDocs, query, doc, updateDoc, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -61,18 +62,20 @@ export default function UsersPage() {
     try {
       setLoading(true);
       setError(null);
-      const querySnapshot = await getDocs(collection(db, "users"));
-      const usersData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-        id: doc.id,
-        ...doc.data(),
-      } as User));
-      setUsers(usersData);
-      if (usersData.length === 0 && !error) {
-          setError("No se encontraron usuarios.");
+
+      const functions = getFunctions();
+      const listAllUsers = httpsCallable(functions, 'listAllUsers');
+      const result: any = await listAllUsers();
+
+      if (result.data.users) {
+        setUsers(result.data.users as User[]);
+      } else {
+        setError("No se recibieron datos de usuarios.");
       }
+      
     } catch (err: any) {
       console.error("Error fetching users: ", err);
-      if (err.code === 'permission-denied') {
+      if (err.code === 'permission-denied' || err.message.includes('permission-denied')) {
           setError("No tienes permiso para ver esta información. Solo los administradores pueden ver la lista de usuarios.");
       } else {
           setError("Ocurrió un error al cargar los usuarios.");
@@ -83,7 +86,19 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
-    fetchUsers();
+    // We need to wait for the user to be authenticated before calling the function
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      if (user) {
+        fetchUsers();
+      } else {
+        // Handle case where user is not logged in, maybe redirect
+        setLoading(false);
+        setError("Debes iniciar sesión para ver esta página.");
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
   
   const handleEditClick = (user: User) => {
@@ -190,7 +205,7 @@ export default function UsersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {user.lastLogin}
+                      {user.lastLogin || "N/A"}
                     </TableCell>
                     <TableCell className="text-right">
                         <DropdownMenu>
@@ -241,6 +256,7 @@ export default function UsersPage() {
                     <SelectContent>
                         <SelectItem value="Admin">Admin</SelectItem>
                         <SelectItem value="Gestor">Gestor</SelectItem>
+                        <SelectItem value="Cliente">Cliente</SelectItem>
                     </SelectContent>
                 </Select>
               </div>
