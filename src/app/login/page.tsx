@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "lucide-react";
@@ -32,6 +32,33 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "Error de inicio de sesión",
+        description: error.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      toast({
+        variant: "destructive",
+        title: "Correo Requerido",
+        description: "Por favor, ingresa tu correo electrónico para restablecer la contraseña.",
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast({
+        title: "Correo Enviado",
+        description: "Revisa tu bandeja de entrada para ver el enlace de restablecimiento de contraseña.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
         description: error.message,
       });
     } finally {
@@ -67,12 +94,15 @@ export default function LoginPage() {
             <div className="grid gap-2">
               <div className="flex items-center">
                 <Label htmlFor="password">Contraseña</Label>
-                <Link
-                  href="#"
-                  className="ml-auto inline-block text-sm underline"
+                <Button
+                  type="button"
+                  variant="link"
+                  className="ml-auto inline-block text-sm underline p-0 h-auto"
+                  onClick={handlePasswordReset}
+                  disabled={loading}
                 >
                   ¿Olvidaste tu contraseña?
-                </Link>
+                </Button>
               </div>
               <Input 
                 id="password" 
