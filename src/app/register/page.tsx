@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "lucide-react";
 import { linkEquipmentToUser } from "@/ai/flows/link-equipment-flow";
@@ -64,7 +64,7 @@ export default function RegisterPage() {
         role: "Cliente",
         status: "Activo",
         since: new Date().toLocaleDateString('es-DO'),
-        createdAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
       };
       await setDoc(doc(db, "users", user.uid), userData);
 
@@ -148,11 +148,12 @@ export default function RegisterPage() {
                     />
                 </div>
                 <div className="grid gap-2">
-                    <Label htmlFor="phone">Teléfono (Opcional)</Label>
+                    <Label htmlFor="phone">Teléfono</Label>
                     <Input
                         id="phone"
                         type="tel"
                         placeholder="809-555-1234"
+                        required
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                     />
