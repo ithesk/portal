@@ -90,6 +90,16 @@ export default function InternalLayout({
   if (isAuthPage) {
       return <>{children}</>;
   }
+  
+  const getInitials = (name?: string | null) => {
+    if (!name) return "G";
+    const names = name.split(' ');
+    if (names.length > 1) {
+      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }
+
 
   return (
     <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
@@ -135,8 +145,8 @@ export default function InternalLayout({
                             className="overflow-hidden rounded-full"
                         >
                             <Avatar>
-                            <AvatarImage src="https://placehold.co/32x32.png" alt="@gestor" data-ai-hint="person portrait" />
-                            <AvatarFallback>G</AvatarFallback>
+                               <AvatarImage src={user.photoURL || undefined} alt={`@${user.displayName}`} />
+                               <AvatarFallback>{getInitials(user.displayName || user.email)}</AvatarFallback>
                             </Avatar>
                         </Button>
                         </DropdownMenuTrigger>

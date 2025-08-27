@@ -73,6 +73,15 @@ export default function DashboardLayout({
   if (!user) {
     return null;
   }
+  
+  const getInitials = (name?: string | null) => {
+    if (!name) return "U";
+    const names = name.split(' ');
+    if (names.length > 1) {
+      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -155,8 +164,8 @@ export default function DashboardLayout({
                 className="overflow-hidden rounded-full"
               >
                  <Avatar>
-                  <AvatarImage src="https://placehold.co/32x32.png" alt="@usuario" data-ai-hint="person portrait" />
-                  <AvatarFallback>U</AvatarFallback>
+                  <AvatarImage src={user.photoURL || undefined} alt={`@${user.displayName}`} />
+                  <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
