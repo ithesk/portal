@@ -20,9 +20,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Search, Loader2, MoreHorizontal, Eye } from "lucide-react";
+import { PlusCircle, Search, Loader2, MoreHorizontal, Eye, Edit } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { collection, getDocs, QueryDocumentSnapshot, DocumentData, addDoc, serverTimestamp, query, where } from "firebase/firestore";
+import { collection, getDocs, QueryDocumentSnapshot, DocumentData, addDoc, serverTimestamp, query, where, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -34,9 +34,11 @@ interface Client {
   id: string;
   name: string;
   contact: string;
+  phone?: string;
   status: string;
   since: string;
   equipmentCount: number;
+  role?: string;
 }
 
 function NewClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
@@ -161,6 +163,11 @@ function NewClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [editFormData, setEditFormData] = useState({ email: "", phone: "" });
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { toast } = useToast();
 
   const fetchClients = async () => {
       try {
@@ -190,7 +197,42 @@ export default function ClientsPage() {
     fetchClients();
   }, []);
 
+  const handleEditClick = (client: Client) => {
+    setSelectedClient(client);
+    setEditFormData({
+        email: client.contact,
+        phone: client.phone || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setEditFormData(prev => ({...prev, [id]: value }));
+  };
+
+  const handleUpdateSubmit = async () => {
+    if (!selectedClient) return;
+    setIsUpdating(true);
+    try {
+        const clientRef = doc(db, "users", selectedClient.id);
+        await updateDoc(clientRef, {
+            email: editFormData.email,
+            contact: editFormData.email, // Assuming contact is email
+            phone: editFormData.phone,
+        });
+        toast({ title: "Cliente Actualizado", description: "La información del cliente ha sido actualizada." });
+        setIsEditDialogOpen(false);
+        fetchClients(); // Refresh data
+    } catch (error: any) {
+        toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el cliente." });
+    } finally {
+        setIsUpdating(false);
+    }
+  };
+
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
@@ -268,6 +310,9 @@ export default function ClientsPage() {
                                     <Eye className="mr-2 h-4 w-4" /> Ver Detalles
                                 </Link>
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditClick(client)}>
+                                <Edit className="mr-2 h-4 w-4" /> Editar Cliente
+                            </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                   </TableCell>
@@ -278,5 +323,34 @@ export default function ClientsPage() {
         </Table>
       </CardContent>
     </Card>
+
+    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+                <DialogTitle>Editar Cliente</DialogTitle>
+                <DialogDescription>
+                   Modifica la información de contacto de {selectedClient?.name}.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="email" className="text-right">Correo</Label>
+                    <Input id="email" type="email" value={editFormData.email} onChange={handleEditFormChange} className="col-span-3" />
+                </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="phone" className="text-right">Teléfono</Label>
+                    <Input id="phone" type="tel" value={editFormData.phone} onChange={handleEditFormChange} className="col-span-3" />
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+                <Button type="button" onClick={handleUpdateSubmit} disabled={isUpdating}>
+                    {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Guardar Cambios
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+    </>
   );
 }
