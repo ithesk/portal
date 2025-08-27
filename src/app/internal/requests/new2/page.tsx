@@ -121,11 +121,11 @@ function NewRequestForm() {
   const [verificationCode, setVerificationCode] = useState("");
   const [smsLoading, setSmsLoading] = useState(false);
   const [isSmsVerified, setIsSmsVerified] = useState(false);
+  const [existingClientPhone, setExistingClientPhone] = useState("");
 
 
   const handleClientSearch = useCallback(async () => {
     if (cedulaInput.length !== 11) {
-        // Don't search if cedula is not complete
         return;
     }
     setIsSearchingClient(true);
@@ -138,6 +138,7 @@ function NewRequestForm() {
             const clientDoc = querySnapshot.docs[0];
             const clientData = { id: clientDoc.id, ...clientDoc.data() } as Client
             setClientFound(clientData);
+            setExistingClientPhone(clientData.phone || "");
             toast({ title: "Cliente Encontrado", description: `Se cargaron los datos de ${clientData.name}.` });
         } else {
             setClientFound(null);
@@ -244,22 +245,42 @@ function NewRequestForm() {
     });
   };
 
-  const onSendSmsCode = async () => {
+  const onSendSmsCode = async (phoneToSend: string) => {
     setSmsLoading(true);
-    if (!clientFound || !clientFound.phone) {
-        toast({ variant: "destructive", title: "Número no encontrado", description: "El cliente no tiene un número de teléfono registrado." });
+    if (!phoneToSend) {
+        toast({ variant: "destructive", title: "Número no encontrado", description: "No hay un número de teléfono para enviar el código." });
         setSmsLoading(false);
         return;
     }
     try {
         setupRecaptcha();
         const appVerifier = window.recaptchaVerifier;
-        const result = await signInWithPhoneNumber(auth, clientFound.phone, appVerifier);
+        const result = await signInWithPhoneNumber(auth, phoneToSend, appVerifier);
         setConfirmationResult(result);
-        toast({ title: "Código Enviado", description: `Se ha enviado un código a ${clientFound.phone}.` });
+        toast({ title: "Código Enviado", description: `Se ha enviado un código a ${phoneToSend}.` });
     } catch (error: any) {
         console.error("Error sending SMS:", error);
         toast({ variant: "destructive", title: "Error al Enviar Código", description: error.message });
+    } finally {
+        setSmsLoading(false);
+    }
+  };
+  
+  const handleSaveAndSendSms = async () => {
+    if (!clientFound || !existingClientPhone) {
+        toast({ variant: "destructive", title: "Error", description: "No hay cliente o número de teléfono para guardar." });
+        return;
+    }
+    setSmsLoading(true);
+    try {
+        const userDocRef = doc(db, "users", clientFound.id);
+        await updateDoc(userDocRef, { phone: existingClientPhone });
+        setClientFound(prev => prev ? {...prev, phone: existingClientPhone} : null);
+        toast({ title: "Teléfono Guardado", description: "El número de teléfono del cliente ha sido actualizado." });
+        await onSendSmsCode(existingClientPhone);
+    } catch (error: any) {
+         console.error("Error saving phone or sending SMS:", error);
+         toast({ variant: "destructive", title: "Error", description: "No se pudo guardar el teléfono o enviar el código." });
     } finally {
         setSmsLoading(false);
     }
@@ -505,14 +526,31 @@ function NewRequestForm() {
                                 <Card className="mt-4">
                                   <CardHeader>
                                     <CardTitle>Verificación por SMS</CardTitle>
-                                    <CardDescription>Envía un código de verificación al teléfono del cliente para continuar.</CardDescription>
+                                    <CardDescription>
+                                        {clientFound.phone 
+                                            ? "Envía un código de verificación al teléfono del cliente para continuar."
+                                            : "Este cliente no tiene teléfono. Agrégalo para enviar el código."
+                                        }
+                                    </CardDescription>
                                   </CardHeader>
                                   <CardContent className="space-y-4">
                                     <div className="flex w-full max-w-sm items-center space-x-2">
-                                      <Input type="tel" value={clientFound.phone} readOnly />
-                                      <Button type="button" onClick={onSendSmsCode} disabled={smsLoading || !!confirmationResult}>
-                                        {smsLoading ? <Loader2 className="animate-spin" /> : "Enviar Código"}
-                                      </Button>
+                                      <Input 
+                                        type="tel" 
+                                        value={existingClientPhone} 
+                                        onChange={(e) => setExistingClientPhone(e.target.value)}
+                                        placeholder="Ingresa el teléfono"
+                                        readOnly={!!clientFound.phone} 
+                                      />
+                                      {clientFound.phone ? (
+                                        <Button type="button" onClick={() => onSendSmsCode(clientFound.phone)} disabled={smsLoading || !!confirmationResult}>
+                                            {smsLoading ? <Loader2 className="animate-spin" /> : "Enviar Código"}
+                                        </Button>
+                                      ) : (
+                                         <Button type="button" onClick={handleSaveAndSendSms} disabled={smsLoading || !existingClientPhone}>
+                                            {smsLoading ? <Loader2 className="animate-spin" /> : "Guardar y Enviar"}
+                                        </Button>
+                                      )}
                                     </div>
                                     {confirmationResult && (
                                       <div className="flex w-full max-w-sm items-center space-x-2 pt-2">
