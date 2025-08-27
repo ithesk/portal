@@ -245,19 +245,29 @@ function NewRequestForm() {
     });
   };
 
-  const onSendSmsCode = async (phoneToSend: string) => {
+  const onSendSmsCode = async (phone: string) => {
     setSmsLoading(true);
-    if (!phoneToSend) {
-        toast({ variant: "destructive", title: "Número no encontrado", description: "No hay un número de teléfono para enviar el código." });
+    
+    // Normalize phone number
+    let formattedPhone = phone.replace(/\D/g, ''); // Remove non-digits
+    if (formattedPhone.length === 10) { // Assume local number without country code
+        formattedPhone = `+1${formattedPhone}`;
+    } else if (!formattedPhone.startsWith('+')) {
+        formattedPhone = `+${formattedPhone}`;
+    }
+
+    if (!formattedPhone.startsWith('+1')) { // Basic check for Dominican Republic context
+        toast({ variant: "destructive", title: "Número Inválido", description: "Asegúrate que el número tenga código de país (Ej: +1809...)." });
         setSmsLoading(false);
         return;
     }
+
     try {
         setupRecaptcha();
         const appVerifier = window.recaptchaVerifier;
-        const result = await signInWithPhoneNumber(auth, phoneToSend, appVerifier);
+        const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
         setConfirmationResult(result);
-        toast({ title: "Código Enviado", description: `Se ha enviado un código a ${phoneToSend}.` });
+        toast({ title: "Código Enviado", description: `Se ha enviado un código a ${formattedPhone}.` });
     } catch (error: any) {
         console.error("Error sending SMS:", error);
         toast({ variant: "destructive", title: "Error al Enviar Código", description: error.message });
