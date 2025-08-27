@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import SignatureCanvas from "react-signature-canvas";
 import QRCode from "qrcode.react";
@@ -104,10 +104,9 @@ function NewRequestForm() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
-
-  const handleClientSearch = async () => {
-    if (!cedulaInput) {
-        toast({ variant: "destructive", title: "Cédula requerida", description: "Ingresa un número de cédula para buscar." });
+  const handleClientSearch = useCallback(async () => {
+    if (cedulaInput.length !== 11) {
+        // Don't search if cedula is not complete
         return;
     }
     setIsSearchingClient(true);
@@ -130,7 +129,23 @@ function NewRequestForm() {
     } finally {
         setIsSearchingClient(false);
     }
-  }
+  }, [cedulaInput, toast]);
+
+  // useEffect to auto-trigger search when cedula is 11 digits
+  useEffect(() => {
+    if (cedulaInput.length === 11) {
+      handleClientSearch();
+    }
+  }, [cedulaInput, handleClientSearch]);
+
+
+  const handleCedulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove all non-digit characters
+    if (value.length <= 11) {
+        setCedulaInput(value);
+    }
+  };
+
 
   const handleCheckVerificationStatus = async () => {
     if (!verificationId) return;
@@ -223,7 +238,7 @@ function NewRequestForm() {
   const initialPayment = itemValue * (initialPercentage / 100);
   const financingAmount = itemValue - initialPayment;
   const interestRate = 0.525;
-  const totalInterest = financingAmount * interestRate;
+  const totalInterest = financingAmount * totalInterest;
   const totalToPayInInstallments = financingAmount + totalInterest;
   const biweeklyPayment = installments > 0 ? totalToPayInInstallments / installments : 0;
   const totalPaid = initialPayment + totalToPayInInstallments;
@@ -388,8 +403,8 @@ function NewRequestForm() {
                <div className="pt-6">
                 <CardTitle>Buscar Cliente por Cédula</CardTitle>
                 <div className="flex w-full max-w-sm items-center space-x-2 mt-4">
-                    <Input id="cedula" placeholder="001-0000000-0" value={cedulaInput} onChange={(e) => setCedulaInput(e.target.value)} disabled={isSearchingClient || !!clientFound}/>
-                    <Button type="button" onClick={handleClientSearch} disabled={isSearchingClient || !!clientFound}>
+                    <Input id="cedula" placeholder="00112345678" value={cedulaInput} onChange={handleCedulaChange} disabled={isSearchingClient || !!clientFound}/>
+                    <Button type="button" onClick={handleClientSearch} disabled={isSearchingClient || !!clientFound || cedulaInput.length !== 11}>
                        {isSearchingClient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                        Buscar
                     </Button>
@@ -622,3 +637,5 @@ export default function NewRequestPage() {
         </Suspense>
     );
 }
+
+    
