@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -19,12 +20,13 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Search, Loader2 } from "lucide-react";
+import { PlusCircle, Search, Loader2, MoreHorizontal, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { collection, getDocs, QueryDocumentSnapshot, DocumentData, addDoc, serverTimestamp, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
@@ -213,7 +215,7 @@ export default function ClientsPage() {
               <TableHead>Contacto</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="hidden md:table-cell">Cliente Desde</TableHead>
-              <TableHead className="text-right">Equipos</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -224,7 +226,7 @@ export default function ClientsPage() {
                   <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-28" /></TableCell>
                   <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
-                  <TableCell className="text-right"><Skeleton className="h-5 w-8 ml-auto" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : (
@@ -247,7 +249,28 @@ export default function ClientsPage() {
                   <TableCell className="hidden md:table-cell">
                     {client.since}
                   </TableCell>
-                  <TableCell className="text-right">{client.equipmentCount}</TableCell>
+                  <TableCell className="text-right">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                            >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/internal/clients/${client.id}`}>
+                                    <Eye className="mr-2 h-4 w-4" /> Ver Detalles
+                                </Link>
+                            </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                  </TableCell>
                 </TableRow>
               ))
             )}
