@@ -26,6 +26,7 @@ import {
   Mail,
   Phone,
   Home,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,9 +53,10 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
@@ -72,6 +74,12 @@ interface Client {
     email: string;
     phone: string;
     address?: string;
+}
+
+declare global {
+  interface Window {
+    recaptchaVerifier: RecaptchaVerifier;
+  }
 }
 
 // Helper to convert File to Base64
@@ -107,6 +115,14 @@ function NewRequestForm() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
 
+  // Step 1.5b: SMS Verification for existing client
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [smsLoading, setSmsLoading] = useState(false);
+  const [isSmsVerified, setIsSmsVerified] = useState(false);
+
+
   const handleClientSearch = useCallback(async () => {
     if (cedulaInput.length !== 11) {
         // Don't search if cedula is not complete
@@ -120,8 +136,9 @@ function NewRequestForm() {
 
         if (!querySnapshot.empty) {
             const clientDoc = querySnapshot.docs[0];
-            setClientFound({ id: clientDoc.id, ...clientDoc.data() } as Client);
-            toast({ title: "Cliente Encontrado", description: `Se cargaron los datos de ${clientDoc.data().name}.` });
+            const clientData = { id: clientDoc.id, ...clientDoc.data() } as Client
+            setClientFound(clientData);
+            toast({ title: "Cliente Encontrado", description: `Se cargaron los datos de ${clientData.name}.` });
         } else {
             setClientFound(null);
             toast({ title: "Cliente No Encontrado", description: "Este cliente es nuevo. Procede con la verificación de identidad.", duration: 5000 });
@@ -216,6 +233,58 @@ function NewRequestForm() {
   };
 
 
+   // --- SMS Verification Logic ---
+  const setupRecaptcha = () => {
+    if (!recaptchaContainerRef.current) return;
+    recaptchaContainerRef.current.innerHTML = ''; // Clear previous instance
+    const authInstance = getAuth();
+    window.recaptchaVerifier = new RecaptchaVerifier(authInstance, recaptchaContainerRef.current, {
+      'size': 'invisible',
+      'callback': (response: any) => console.log("reCAPTCHA solved"),
+    });
+  };
+
+  const onSendSmsCode = async () => {
+    setSmsLoading(true);
+    if (!clientFound || !clientFound.phone) {
+        toast({ variant: "destructive", title: "Número no encontrado", description: "El cliente no tiene un número de teléfono registrado." });
+        setSmsLoading(false);
+        return;
+    }
+    try {
+        setupRecaptcha();
+        const appVerifier = window.recaptchaVerifier;
+        const result = await signInWithPhoneNumber(auth, clientFound.phone, appVerifier);
+        setConfirmationResult(result);
+        toast({ title: "Código Enviado", description: `Se ha enviado un código a ${clientFound.phone}.` });
+    } catch (error: any) {
+        console.error("Error sending SMS:", error);
+        toast({ variant: "destructive", title: "Error al Enviar Código", description: error.message });
+    } finally {
+        setSmsLoading(false);
+    }
+  };
+
+  const onVerifySmsCode = async () => {
+    setSmsLoading(true);
+    if (!confirmationResult || !verificationCode) {
+        toast({ variant: "destructive", title: "Error", description: "Por favor, ingresa el código de verificación." });
+        setSmsLoading(false);
+        return;
+    }
+    try {
+        await confirmationResult.confirm(verificationCode);
+        setIsSmsVerified(true);
+        toast({ title: "¡Teléfono Verificado!", description: "El número ha sido verificado exitosamente." });
+    } catch (error: any) {
+        console.error("Error verifying code:", error);
+        toast({ variant: "destructive", title: "Código Incorrecto", description: "El código ingresado no es válido." });
+    } finally {
+        setSmsLoading(false);
+    }
+  };
+
+
   // Step 2
   const [itemType, setItemType] = useState<string>("");
   const [itemValue, setItemValue] = useState(12500);
@@ -257,14 +326,20 @@ function NewRequestForm() {
   const nextStep = async () => {
     if (currentStep === 1) {
         if (clientFound) {
+            // Logic for existing client
+            if (!isSmsVerified) {
+                toast({ variant: "destructive", title: "Verificación SMS Requerida", description: "Debes verificar el teléfono del cliente para continuar." });
+                return;
+            }
             setCurrentStep(2);
             return;
         }
+
+        // Logic for new client
         if (!verifiedClientData) {
-            toast({ variant: "destructive", title: "Verificación Requerida", description: "Debes completar la verificación de identidad del cliente." });
+            toast({ variant: "destructive", title: "Verificación de ID Requerida", description: "Debes completar la verificación de identidad del cliente." });
             return;
         }
-        // If client is new and verified, we need to save them
         if (verifiedClientData && (!email || !phone)) {
            toast({ variant: "destructive", title: "Datos de Contacto Requeridos", description: "Por favor, ingresa el correo y teléfono del nuevo cliente." });
            return;
@@ -272,8 +347,7 @@ function NewRequestForm() {
         
         setLoading(true);
         try {
-            // This is a new user, create their document in a `users` subcollection.
-            // Using cedula as ID for simplicity in this flow, but for real apps a UID from Firebase Auth is better.
+            // This is a new user, create their document. Using cedula as ID for simplicity in this flow.
             const userDocRef = doc(db, "users", verifiedClientData.cedula!);
             const userData = {
                 name: verifiedClientData.name,
@@ -395,6 +469,7 @@ function NewRequestForm() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      <div id="recaptcha-container" ref={recaptchaContainerRef}></div>
       <form onSubmit={handleSubmit}>
         <Card>
           <CardHeader>
@@ -418,13 +493,45 @@ function NewRequestForm() {
                 {clientSearchPerformed && (
                     <div className="mt-8">
                         {clientFound ? (
-                            <Alert variant="default" className="bg-green-50 border-green-200">
-                                <UserCheck className="h-4 w-4 !text-green-700" />
-                                <AlertTitle className="text-green-800">Cliente Encontrado</AlertTitle>
-                                <AlertDescription className="text-green-900">
-                                   Se usarán los datos de <b>{clientFound.name}</b> para esta solicitud. Puedes continuar al siguiente paso.
-                                </AlertDescription>
-                            </Alert>
+                            <div>
+                                <Alert variant="default" className="bg-green-50 border-green-200">
+                                    <UserCheck className="h-4 w-4 !text-green-700" />
+                                    <AlertTitle className="text-green-800">Cliente Encontrado</AlertTitle>
+                                    <AlertDescription className="text-green-900">
+                                    Se usarán los datos de <b>{clientFound.name}</b>.
+                                    </AlertDescription>
+                                </Alert>
+
+                                <Card className="mt-4">
+                                  <CardHeader>
+                                    <CardTitle>Verificación por SMS</CardTitle>
+                                    <CardDescription>Envía un código de verificación al teléfono del cliente para continuar.</CardDescription>
+                                  </CardHeader>
+                                  <CardContent className="space-y-4">
+                                    <div className="flex w-full max-w-sm items-center space-x-2">
+                                      <Input type="tel" value={clientFound.phone} readOnly />
+                                      <Button type="button" onClick={onSendSmsCode} disabled={smsLoading || !!confirmationResult}>
+                                        {smsLoading ? <Loader2 className="animate-spin" /> : "Enviar Código"}
+                                      </Button>
+                                    </div>
+                                    {confirmationResult && (
+                                      <div className="flex w-full max-w-sm items-center space-x-2 pt-2">
+                                        <MessageSquare className="text-muted-foreground" />
+                                        <Input
+                                          id="verification-code"
+                                          placeholder="Código de 6 dígitos"
+                                          value={verificationCode}
+                                          onChange={e => setVerificationCode(e.target.value)}
+                                          disabled={isSmsVerified}
+                                        />
+                                        <Button type="button" onClick={onVerifySmsCode} disabled={smsLoading || isSmsVerified || verificationCode.length !== 6}>
+                                          {isSmsVerified ? <CheckCircle /> : "Verificar"}
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                            </div>
                         ) : (
                              <div>
                                 <Alert variant="destructive" className="bg-amber-50 border-amber-200">
