@@ -53,10 +53,9 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
@@ -74,12 +73,6 @@ interface Client {
     email: string;
     phone: string;
     address?: string;
-}
-
-declare global {
-  interface Window {
-    recaptchaVerifier: RecaptchaVerifier;
-  }
 }
 
 // Helper to convert File to Base64
@@ -116,12 +109,11 @@ function NewRequestForm() {
   const [address, setAddress] = useState("");
 
   // Step 1.5b: SMS Verification for existing client
-  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
   const [smsLoading, setSmsLoading] = useState(false);
   const [isSmsVerified, setIsSmsVerified] = useState(false);
   const [existingClientPhone, setExistingClientPhone] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
 
 
   const handleClientSearch = useCallback(async () => {
@@ -235,45 +227,50 @@ function NewRequestForm() {
 
 
    // --- SMS Verification Logic ---
-  const setupRecaptcha = () => {
-    if (!recaptchaContainerRef.current) return;
-    recaptchaContainerRef.current.innerHTML = ''; // Clear previous instance
-    const authInstance = getAuth();
-    window.recaptchaVerifier = new RecaptchaVerifier(authInstance, recaptchaContainerRef.current, {
-      'size': 'invisible',
-      'callback': (response: any) => console.log("reCAPTCHA solved"),
-    });
+  const onSendSmsCode = async (phone: string) => {
+      setSmsLoading(true);
+      try {
+          const functions = getFunctions();
+          const sendSmsVerification = httpsCallable(functions, 'sendSmsVerification');
+          const result: any = await sendSmsVerification({ phoneNumber: phone });
+          if (result.data.success) {
+              setCodeSent(true);
+              toast({ title: "Código Enviado", description: `Se ha enviado un código a ${phone}.` });
+          } else {
+              throw new Error(result.data.message || "Falló el envío de SMS");
+          }
+      } catch (error: any) {
+          console.error("Error enviando SMS:", error);
+          toast({ variant: "destructive", title: "Error al Enviar Código", description: error.message });
+      } finally {
+          setSmsLoading(false);
+      }
   };
 
-  const onSendSmsCode = async (phone: string) => {
-    setSmsLoading(true);
-    
-    // Normalize phone number
-    let phoneToSend = phone.replace(/\D/g, ''); // Remove non-digits
-    if (phoneToSend.length === 10) { // Assume local number without country code
-        phoneToSend = `+1${phoneToSend}`;
-    } else if (!phoneToSend.startsWith('+')) {
-        phoneToSend = `+${phoneToSend}`;
-    }
-
-    if (!phoneToSend.startsWith('+1')) { // Basic check for Dominican Republic context
-        toast({ variant: "destructive", title: "Número Inválido", description: "Asegúrate que el número tenga código de país (Ej: +1809...)." });
-        setSmsLoading(false);
-        return;
-    }
-
-    try {
-        setupRecaptcha();
-        const appVerifier = window.recaptchaVerifier;
-        const result = await signInWithPhoneNumber(auth, phoneToSend, appVerifier);
-        setConfirmationResult(result);
-        toast({ title: "Código Enviado", description: `Se ha enviado un código a ${phoneToSend}.` });
-    } catch (error: any) {
-        console.error("Error sending SMS:", error);
-        toast({ variant: "destructive", title: "Error al Enviar Código", description: error.message });
-    } finally {
-        setSmsLoading(false);
-    }
+  const onVerifySmsCode = async () => {
+      setSmsLoading(true);
+      if (!clientFound?.phone || !verificationCode) {
+          toast({ variant: "destructive", title: "Error", description: "Por favor, ingresa el código." });
+          setSmsLoading(false);
+          return;
+      }
+      try {
+          const functions = getFunctions();
+          const verifySmsCode = httpsCallable(functions, 'verifySmsCode');
+          const result: any = await verifySmsCode({ phoneNumber: clientFound.phone, code: verificationCode });
+          
+          if (result.data.success) {
+              setIsSmsVerified(true);
+              toast({ title: "¡Teléfono Verificado!", description: "El número ha sido verificado exitosamente." });
+          } else {
+               throw new Error(result.data.message || "El código es incorrecto.");
+          }
+      } catch (error: any) {
+          console.error("Error verificando el código:", error);
+          toast({ variant: "destructive", title: "Código Incorrecto", description: error.message });
+      } finally {
+          setSmsLoading(false);
+      }
   };
   
   const handleSaveAndSendSms = async () => {
@@ -295,26 +292,6 @@ function NewRequestForm() {
         setSmsLoading(false);
     }
   };
-
-  const onVerifySmsCode = async () => {
-    setSmsLoading(true);
-    if (!confirmationResult || !verificationCode) {
-        toast({ variant: "destructive", title: "Error", description: "Por favor, ingresa el código de verificación." });
-        setSmsLoading(false);
-        return;
-    }
-    try {
-        await confirmationResult.confirm(verificationCode);
-        setIsSmsVerified(true);
-        toast({ title: "¡Teléfono Verificado!", description: "El número ha sido verificado exitosamente." });
-    } catch (error: any) {
-        console.error("Error verifying code:", error);
-        toast({ variant: "destructive", title: "Código Incorrecto", description: "El código ingresado no es válido." });
-    } finally {
-        setSmsLoading(false);
-    }
-  };
-
 
   // Step 2
   const [itemType, setItemType] = useState<string>("");
@@ -397,7 +374,7 @@ function NewRequestForm() {
         
         setLoading(true);
         try {
-            // This is a new user, create their document. Using cedula as ID for simplicity in this flow.
+            // This is a new user, create their document.
             const userDocRef = doc(collection(db, "users"));
             const userData = {
                 uid: userDocRef.id, // Store the auto-generated ID as uid
@@ -520,7 +497,6 @@ function NewRequestForm() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <div id="recaptcha-container" ref={recaptchaContainerRef}></div>
       <form onSubmit={handleSubmit}>
         <Card>
           <CardHeader>
@@ -570,19 +546,19 @@ function NewRequestForm() {
                                         value={existingClientPhone} 
                                         onChange={(e) => setExistingClientPhone(e.target.value)}
                                         placeholder="Ingresa el teléfono"
-                                        readOnly={!!clientFound.phone} 
+                                        readOnly={!!clientFound.phone || codeSent} 
                                       />
                                       {clientFound.phone ? (
-                                        <Button type="button" onClick={() => onSendSmsCode(clientFound.phone)} disabled={smsLoading || !!confirmationResult}>
-                                            {smsLoading ? <Loader2 className="animate-spin" /> : "Enviar Código"}
+                                        <Button type="button" onClick={() => onSendSmsCode(clientFound.phone!)} disabled={smsLoading || codeSent}>
+                                            {smsLoading ? <Loader2 className="animate-spin" /> : (codeSent ? "Enviado" : "Enviar Código")}
                                         </Button>
                                       ) : (
-                                         <Button type="button" onClick={handleSaveAndSendSms} disabled={smsLoading || !existingClientPhone}>
+                                         <Button type="button" onClick={handleSaveAndSendSms} disabled={smsLoading || !existingClientPhone || codeSent}>
                                             {smsLoading ? <Loader2 className="animate-spin" /> : "Guardar y Enviar"}
                                         </Button>
                                       )}
                                     </div>
-                                    {confirmationResult && (
+                                    {codeSent && (
                                       <div className="flex w-full max-w-sm items-center space-x-2 pt-2">
                                         <MessageSquare className="text-muted-foreground" />
                                         <Input

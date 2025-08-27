@@ -7,6 +7,7 @@ const fetch = require("node-fetch");
 const FormData = require("form-data"); // <--- IMPORTACIÓN CORREGIDA
 const { Storage } = require("@google-cloud/storage");
 const admin = require("firebase-admin");
+const bcrypt = require('bcryptjs');
 
 
 // Use a specific region for your functions
@@ -21,6 +22,115 @@ const app = initializeApp({
 
 const db = getFirestore(app, "alzadatos"); // 👈 conecta a la base alzadatos
 const storage = getStorage(app);
+
+
+// =======================================================================================
+// NEW SMS VERIFICATION FUNCTIONS
+// =======================================================================================
+
+exports.sendSmsVerification = regionalFunctions.https.onCall(async (data, context) => {
+    const { phoneNumber } = data;
+
+    if (!phoneNumber) {
+        throw new functions.https.HttpsError("invalid-argument", "Se requiere el número de teléfono.");
+    }
+
+    // 1. Generate a 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const message = `Tu codigo de verificacion para Alza es: ${code}`;
+
+    // 2. Hash the code before storing
+    const salt = await bcrypt.genSalt(10);
+    const hashedCode = await bcrypt.hash(code, salt);
+
+    // 3. Store hashed code and expiration in Firestore
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10); // Code expires in 10 minutes
+
+    const verificationRef = db.collection("smsVerifications").doc(phoneNumber);
+    await verificationRef.set({
+        hashedCode: hashedCode,
+        expiresAt: Timestamp.fromDate(expiresAt),
+        attempts: 0
+    });
+
+    // 4. Call the external SMS API
+    const apiKey = functions.config().ithesk.apikey;
+    if (!apiKey) {
+        console.error("CRITICAL: La API Key para iThesk no está configurada.");
+        throw new functions.https.HttpsError("internal", "Error de configuración del servidor.");
+    }
+
+    try {
+        const response = await fetch("http://sms.ithesk.com/send-sms/", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': apiKey,
+            },
+            body: JSON.stringify({
+                number: phoneNumber,
+                message: message,
+            }),
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new functions.https.HttpsError("internal", `La API de SMS falló con estado ${response.status}: ${errorBody}`);
+        }
+
+        console.log(`Código de verificación enviado a ${phoneNumber}`);
+        return { success: true, message: "Código enviado exitosamente." };
+
+    } catch (error) {
+        console.error("Error al llamar a la API de SMS:", error);
+        if (error instanceof functions.https.HttpsError) {
+          throw error;
+        }
+        throw new functions.https.HttpsError("internal", "No se pudo enviar el mensaje SMS.");
+    }
+});
+
+
+exports.verifySmsCode = regionalFunctions.https.onCall(async (data, context) => {
+    const { phoneNumber, code } = data;
+
+    if (!phoneNumber || !code) {
+        throw new functions.https.HttpsError("invalid-argument", "Se requiere el número de teléfono y el código.");
+    }
+
+    const verificationRef = db.collection("smsVerifications").doc(phoneNumber);
+    const docSnap = await verificationRef.get();
+
+    if (!docSnap.exists) {
+        throw new functions.https.HttpsError("not-found", "No se encontró una solicitud de verificación para este número.");
+    }
+
+    const verificationData = docSnap.data();
+
+    // Check expiration
+    if (verificationData.expiresAt.toDate() < new Date()) {
+        await verificationRef.delete(); // Clean up expired doc
+        throw new functions.https.HttpsError("aborted", "El código de verificación ha expirado.");
+    }
+
+    // Check attempts
+    if (verificationData.attempts >= 5) {
+        throw new functions.https.HttpsError("resource-exhausted", "Demasiados intentos fallidos. Por favor, solicita un nuevo código.");
+    }
+
+    // Check code
+    const isMatch = await bcrypt.compare(code, verificationData.hashedCode);
+
+    if (isMatch) {
+        await verificationRef.delete(); // Code used, delete it.
+        return { success: true, message: "Código verificado exitosamente." };
+    } else {
+        // Increment attempts on failure
+        await verificationRef.update({ attempts: FieldValue.increment(1) });
+        throw new functions.https.HttpsError("invalid-argument", "El código ingresado es incorrecto.");
+    }
+});
 
 
 // =======================================================================================
