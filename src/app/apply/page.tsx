@@ -63,19 +63,24 @@ function ApplyForm() {
     recaptchaContainerRef.current.innerHTML = '';
 
     const authInstance = getAuth();
-    window.recaptchaVerifier = new RecaptchaVerifier(authInstance, recaptchaContainerRef.current, {
-      'size': 'invisible',
-      'callback': (response: any) => {
-        // reCAPTCHA solved, allow signInWithPhoneNumber.
-        console.log("reCAPTCHA solved");
-      }
-    });
+    // Use window.recaptchaVerifier if it exists, otherwise create it.
+    // This is to prevent re-creating the verifier on every send.
+    if (!window.recaptchaVerifier) {
+        window.recaptchaVerifier = new RecaptchaVerifier(authInstance, recaptchaContainerRef.current, {
+          'size': 'invisible',
+          'callback': (response: any) => {
+            // reCAPTCHA solved, allow signInWithPhoneNumber.
+            console.log("reCAPTCHA solved");
+          }
+        });
+    }
   }
 
   const onSendCode = async () => {
       setLoading(true);
-      if (!phoneNumber || !/^\+?[1-9]\d{1,14}$/.test(phoneNumber)) {
-          toast({ variant: "destructive", title: "Número Inválido", description: "Por favor, ingresa un número de teléfono válido con código de país (ej: +1809...)." });
+      // Stricter validation: ensure number starts with '+' for E.164 format
+      if (!phoneNumber || !/^\+[1-9]\d{1,14}$/.test(phoneNumber)) {
+          toast({ variant: "destructive", title: "Número Inválido", description: "El número debe estar en formato internacional, iniciando con '+' y el código de país (ej: +1809...)." });
           setLoading(false);
           return;
       }
