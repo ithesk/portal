@@ -5,6 +5,7 @@ import { useState, Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from "next/link";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import "@/lib/firebase"; // Ensure Firebase is initialized
 
 import {
   ChevronLeft,
@@ -270,5 +271,3 @@ export default function ApplyPage() {
         </Suspense>
     )
 }
-
-    
