@@ -17,6 +17,7 @@ import {
   Loader,
   FileText,
   WifiOff,
+  LayoutGrid,
 } from "lucide-react";
 
 import {
@@ -34,11 +35,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogoIcon } from "@/components/shared/logo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
+import { MobileNav } from "@/components/shared/mobile-nav";
+import { FloatingActionButton } from "@/components/shared/fab";
 
 export default function DashboardLayout({
   children,
@@ -63,7 +64,6 @@ export default function DashboardLayout({
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Set initial state
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setIsOffline(true);
     }
@@ -74,14 +74,17 @@ export default function DashboardLayout({
     };
   }, []);
 
-
   const navItems = [
-    { href: "/dashboard", icon: Home, label: "Resumen" },
+    { href: "/dashboard", icon: LayoutGrid, label: "Resumen" },
     { href: "/dashboard/requests", icon: FileText, label: "Mis Solicitudes" },
     { href: "/dashboard/equipment", icon: Wrench, label: "Equipo" },
     { href: "/dashboard/payments", icon: DollarSign, label: "Pagos" },
-    { href: "/dashboard/support", icon: LifeBuoy, label: "Soporte" },
   ];
+
+  const mobileNavItems = [
+     ...navItems,
+     { href: "/dashboard/profile", icon: User, label: "Perfil" },
+  ]
   
   if (loading) {
     return (
@@ -136,53 +139,43 @@ export default function DashboardLayout({
             ))}
           </TooltipProvider>
         </nav>
-      </aside>
-      <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button size="icon" variant="outline" className="sm:hidden">
-                <PanelLeft className="h-5 w-5" />
-                <span className="sr-only">Toggle Menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="sm:max-w-xs">
-              <nav className="grid gap-6 text-lg font-medium">
-                <Link
-                  href="/dashboard"
-                  className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
-                >
-                  <LogoIcon className="h-5 w-5 transition-all group-hover:scale-110" />
-                  <span className="sr-only">Alza</span>
-                </Link>
-                {navItems.map((item) => (
+        <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
+           <TooltipProvider>
+             <Tooltip>
+                <TooltipTrigger asChild>
                   <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-4 px-2.5 ${
-                      pathname === item.href
-                        ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    href="/dashboard/support"
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors md:h-8 md:w-8 text-muted-foreground hover:text-foreground`}
                   >
-                    <item.icon className="h-5 w-5" />
-                    {item.label}
+                    <LifeBuoy className="h-5 w-5" />
+                    <span className="sr-only">Soporte</span>
                   </Link>
-                ))}
-              </nav>
-            </SheetContent>
-          </Sheet>
-          <div className="relative ml-auto flex-1 md:grow-0">
-            <h1 className="text-xl font-semibold sm:block">
-              {navItems.find(item => item.href === pathname)?.label}
+                </TooltipTrigger>
+                <TooltipContent side="right">Soporte</TooltipContent>
+              </Tooltip>
+           </TooltipProvider>
+        </nav>
+      </aside>
+      <div className="flex flex-col sm:pl-14">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+            <div className="sm:hidden">
+                 <Link
+                    href="/dashboard"
+                    className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
+                >
+                    <LogoIcon className="h-4 w-4 transition-all group-hover:scale-110" />
+                    <span className="sr-only">Alza</span>
+                </Link>
+            </div>
+            <h1 className="text-xl font-semibold hidden sm:block">
+              {navItems.find(item => item.href === pathname)?.label || 'Mi Cuenta'}
             </h1>
-          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
                 size="icon"
-                className="overflow-hidden rounded-full"
+                className="overflow-hidden rounded-full ml-auto"
               >
                  <Avatar>
                   <AvatarImage src={user.photoURL || undefined} alt={`@${user.displayName}`} />
@@ -199,9 +192,11 @@ export default function DashboardLayout({
                     <span>Perfil</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <LifeBuoy className="mr-2 h-4 w-4" />
-                <span>Soporte</span>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/support">
+                    <LifeBuoy className="mr-2 h-4 w-4" />
+                    <span>Soporte</span>
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => auth.signOut()}>
@@ -211,7 +206,7 @@ export default function DashboardLayout({
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
+        <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8 pb-24 sm:pb-4">
            {isOffline && (
             <Alert variant="destructive" className="mb-4">
               <WifiOff className="h-4 w-4" />
@@ -223,6 +218,9 @@ export default function DashboardLayout({
           )}
           {children}
         </main>
+        {/* Mobile Navigation */}
+        <FloatingActionButton />
+        <MobileNav items={mobileNavItems} />
       </div>
     </div>
   );
