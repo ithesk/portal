@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 import {
   DollarSign,
   Home,
@@ -40,6 +41,13 @@ import { LogoIcon } from "@/components/shared/logo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { MobileNav } from "@/components/shared/mobile-nav";
 import { FloatingActionButton } from "@/components/shared/fab";
+import { MaleAvatar } from "@/components/shared/male-avatar";
+import { FemaleAvatar } from "@/components/shared/female-avatar";
+
+
+interface UserProfile {
+    gender?: 'Masculino' | 'Femenino';
+}
 
 export default function DashboardLayout({
   children,
@@ -50,12 +58,26 @@ export default function DashboardLayout({
   const router = useRouter();
   const [user, loading, error] = useAuthState(auth);
   const [isOffline, setIsOffline] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+  
+  useEffect(() => {
+    const fetchProfile = async () => {
+        if (user) {
+            const userDocRef = doc(db, "users", user.uid);
+            const docSnap = await getDoc(userDocRef);
+            if (docSnap.exists()) {
+                setUserProfile(docSnap.data() as UserProfile);
+            }
+        }
+    }
+    fetchProfile();
+  }, [user]);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -106,6 +128,19 @@ export default function DashboardLayout({
     }
     return name.substring(0, 2).toUpperCase();
   }
+  
+  const renderAvatarContent = () => {
+    if (user.photoURL) {
+      return <AvatarImage src={user.photoURL} alt={`@${user.displayName}`} />;
+    }
+    if (userProfile?.gender === 'Masculino') {
+      return <MaleAvatar className="h-full w-full" />;
+    }
+    if (userProfile?.gender === 'Femenino') {
+      return <FemaleAvatar className="h-full w-full" />;
+    }
+    return <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>;
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -178,8 +213,7 @@ export default function DashboardLayout({
                 className="overflow-hidden rounded-full ml-auto"
               >
                  <Avatar>
-                  <AvatarImage src={user.photoURL || undefined} alt={`@${user.displayName}`} />
-                  <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
+                    {renderAvatarContent()}
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
