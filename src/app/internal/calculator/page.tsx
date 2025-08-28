@@ -6,6 +6,9 @@ import {
   Calculator,
   Info,
   Loader2,
+  Smartphone,
+  Tablet,
+  Laptop,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,12 +21,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 export default function CalculatorPage() {
+  const [itemType, setItemType] = useState("");
   const [itemValue, setItemValue] = useState(12500);
   const [initialPercentage, setInitialPercentage] = useState(40);
   const [installments, setInstallments] = useState(6);
@@ -77,6 +88,7 @@ export default function CalculatorPage() {
                         <Skeleton className="h-10 w-full" />
                         <Skeleton className="h-10 w-full" />
                         <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
                     </div>
                      <div className="space-y-4">
                         <Skeleton className="h-64 w-full" />
@@ -98,6 +110,36 @@ export default function CalculatorPage() {
         <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
             <div className="space-y-6">
+                <div className="space-y-2">
+                    <Label htmlFor="item-type">Tipo de Artículo</Label>
+                    <Select onValueChange={setItemType} value={itemType}>
+                      <SelectTrigger id="item-type">
+                        <SelectValue placeholder="Selecciona un artículo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="iPhone">
+                          <div className="flex items-center">
+                            <Smartphone className="mr-2 h-4 w-4" /> iPhone
+                          </div>
+                        </SelectItem>
+                         <SelectItem value="Android">
+                          <div className="flex items-center">
+                            <Smartphone className="mr-2 h-4 w-4" /> Android
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Tablet">
+                          <div className="flex items-center">
+                            <Tablet className="mr-2 h-4 w-4" /> Tablet
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Laptop">
+                          <div className="flex items-center">
+                            <Laptop className="mr-2 h-4 w-4" /> Laptop
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 <div className="space-y-2">
                 <Label htmlFor="item-value">Precio del Equipo (RD$)</Label>
                 <Input
