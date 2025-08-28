@@ -33,7 +33,7 @@ function DesktopStoreView() {
   }, []);
 
   return (
-    <div className="hidden sm:block">
+    <div className="hidden sm:block w-full">
         <div className="my-8 text-center">
             <div className="inline-block mx-auto p-3 rounded-full mb-4">
                 <LogoIcon className="h-12 w-12" />
@@ -41,7 +41,7 @@ function DesktopStoreView() {
             <h1 className="text-4xl font-bold">Elige tu Equipo</h1>
             <p className="text-muted-foreground text-lg mt-2">Financiamiento fácil y rápido con Alza.</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-7xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-7xl mx-auto">
             {loading ? (
                 Array.from({ length: 4 }).map((_, index) => (
                     <Card key={index} className="flex flex-col">
@@ -125,14 +125,27 @@ function MobileWelcomeView() {
 export default function HomePage() {
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center bg-muted/40 p-4 sm:p-6 md:p-8">
+    <div className="flex min-h-screen w-full flex-col items-center bg-muted/40 p-4 sm:p-6 md:p-8 relative">
+      <div className="hidden sm:flex absolute top-6 right-6 gap-2">
+         <Button variant="ghost" asChild>
+            <Link href="/login">
+                <LogIn className="mr-2" /> Iniciar Sesión
+            </Link>
+        </Button>
+         <Button asChild>
+            <Link href="/register">
+                <UserPlus className="mr-2" /> Crear Cuenta
+            </Link>
+        </Button>
+      </div>
+
       {/* Mobile View: Welcome Screen */}
       <MobileWelcomeView />
       
       {/* Desktop View: Product Store */}
       <DesktopStoreView />
 
-       <div className="mt-8 text-center text-sm">
+       <div className="mt-8 text-center text-sm absolute bottom-4">
              <Link href="/internal/login" className="underline text-muted-foreground">
                 Acceso Interno
             </Link>
