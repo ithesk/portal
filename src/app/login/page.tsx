@@ -11,8 +11,7 @@ import { Label } from "@/components/ui/label";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
-import { Loader } from "lucide-react";
-import { LogoIcon } from "@/components/shared/logo";
+import { Loader, Lock, Mail } from "lucide-react";
 
 
 export default function LoginPage() {
@@ -32,7 +31,7 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "Error de inicio de sesión",
-        description: error.message,
+        description: "Correo o contraseña incorrectos. Por favor, verifica tus datos.",
       });
     } finally {
       setLoading(false);
@@ -67,23 +66,77 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
-      <Card className="mx-auto max-w-sm w-full">
-        <CardHeader className="text-center">
-          <div className="inline-block mx-auto p-3 rounded-full mb-4">
-             <LogoIcon className="h-12 w-12" />
-          </div>
-          <CardTitle className="text-2xl font-bold">Alza</CardTitle>
+    <div className="flex min-h-screen w-full items-center justify-center bg-muted/40 md:bg-background p-4">
+       <div className="w-full max-w-md space-y-8 md:hidden">
+         <div>
+            <h1 className="text-3xl font-bold">¡Hola de nuevo!</h1>
+            <p className="text-muted-foreground">Inicia sesión en tu cuenta</p>
+         </div>
+          <form onSubmit={handleLogin} className="space-y-6">
+             <div className="space-y-4">
+                <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                        id="email"
+                        type="email"
+                        placeholder="Correo Electrónico"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="pl-10 h-12"
+                    />
+                </div>
+                 <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input 
+                        id="password" 
+                        type="password" 
+                        placeholder="Contraseña"
+                        required 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pl-10 h-12"
+                    />
+                </div>
+             </div>
+             <div className="text-right">
+                 <Button
+                    type="button"
+                    variant="link"
+                    className="p-0 h-auto font-semibold"
+                    onClick={handlePasswordReset}
+                    disabled={loading}
+                    >
+                    ¿Olvidaste tu contraseña?
+                </Button>
+            </div>
+
+            <Button type="submit" className="w-full h-12 text-base font-bold" disabled={loading}>
+              {loading ? <Loader className="animate-spin" /> : 'Iniciar Sesión'}
+            </Button>
+             <div className="text-center text-sm">
+                ¿No tienes una cuenta?{" "}
+                <Link href="/register" className="font-semibold text-primary underline-offset-4 hover:underline">
+                  Crear Cuenta
+                </Link>
+            </div>
+          </form>
+      </div>
+
+      {/* --- Desktop View --- */}
+      <Card className="mx-auto max-w-sm w-full hidden md:block">
+        <CardHeader>
+          <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
           <CardDescription>
-            Conectando puntos
+            Ingresa tu correo electrónico para acceder a tu cuenta.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Correo Electrónico</Label>
+              <Label htmlFor="email-desktop">Correo Electrónico</Label>
               <Input
-                id="email"
+                id="email-desktop"
                 type="email"
                 placeholder="m@example.com"
                 required
@@ -93,8 +146,8 @@ export default function LoginPage() {
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">
-                <Label htmlFor="password">Contraseña</Label>
-                <Button
+                <Label htmlFor="password-desktop">Contraseña</Label>
+                 <Button
                   type="button"
                   variant="link"
                   className="ml-auto inline-block text-sm underline p-0 h-auto"
@@ -105,7 +158,7 @@ export default function LoginPage() {
                 </Button>
               </div>
               <Input 
-                id="password" 
+                id="password-desktop" 
                 type="password" 
                 required 
                 value={password}
@@ -116,14 +169,9 @@ export default function LoginPage() {
               {loading ? <Loader className="animate-spin" /> : 'Iniciar Sesión'}
             </Button>
              <div className="mt-4 text-center text-sm">
-                No tienes una cuenta?{" "}
+                ¿No tienes una cuenta?{" "}
                 <Link href="/register" className="underline">
                   Crear Cuenta
-                </Link>
-            </div>
-            <div className="mt-1 text-center text-sm">
-                <Link href="/internal/login" className="underline">
-                  Ir al portal interno
                 </Link>
             </div>
           </form>

@@ -56,6 +56,11 @@ exports.sendSmsVerification = regionalFunctions.https.onCall(async (data, contex
 
     // 4. Call the external SMS API
     const apiKey = functions.config().ithesk.apikey;
+    
+    console.log("[SMS] API Key exists:", apiKey ? "YES" : "NO");
+    console.log("[SMS] Config keys:", Object.keys(functions.config()));
+    console.log("[SMS] ithesk config:", functions.config().ithesk ? Object.keys(functions.config().ithesk) : "NO ithesk config");
+    console.log("[SMS] API Key (full for debug):", JSON.stringify(apiKey)); // Temporal para debug
     if (!apiKey) {
         console.error("CRITICAL: La API Key para iThesk no está configurada.");
         throw new functions.https.HttpsError("internal", "Error de configuración del servidor.");
