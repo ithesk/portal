@@ -150,7 +150,7 @@ export default function CalculatorPage() {
                     <span>RD$ {financingAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                    <span>Total Intereses ({(interestRate * 100).toFixed(1)}%):</span>
+                    <span>Total Intereses:</span>
                     <span>RD$ {totalInterest.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
