@@ -139,6 +139,102 @@ exports.verifySmsCode = regionalFunctions.https.onCall(async (data, context) => 
 
 
 // =======================================================================================
+// SCHEDULED FUNCTION FOR PAYMENT REMINDERS
+// =======================================================================================
+exports.sendPaymentReminders = regionalFunctions.pubsub.schedule('every 24 hours').onRun(async (context) => {
+    console.log('[REMINDER_LOG] Running daily payment reminder check...');
+
+    const now = new Date();
+    const reminderDate = new Date();
+    reminderDate.setDate(now.getDate() + 2); // Remind 2 days in advance
+
+    try {
+        // 1. Get all active requests
+        const requestsQuery = db.collection('requests').where('status', '==', 'Aprobado');
+        const requestsSnapshot = await requestsQuery.get();
+        
+        if (requestsSnapshot.empty) {
+            console.log('[REMINDER_LOG] No active requests found. Exiting.');
+            return null;
+        }
+
+        const reminderPromises = requestsSnapshot.docs.map(async (doc) => {
+            const request = doc.data();
+            const requestId = doc.id;
+            
+            // 2. For each request, find out how many payments were made
+            const paymentsQuery = db.collection('payments').where('requestId', '==', requestId);
+            const paymentsSnapshot = await paymentsQuery.get();
+            const paymentsMadeCount = paymentsSnapshot.size;
+
+            if (paymentsMadeCount >= request.installments) {
+                return; // Financing is fully paid
+            }
+
+            // 3. Calculate next payment due date
+            const nextInstallmentNumber = paymentsMadeCount + 1;
+            const startDate = request.createdAt.toDate();
+            const dueDate = new Date(startDate.getTime());
+            // Installments are bi-weekly (every 15 days)
+            dueDate.setDate(dueDate.getDate() + nextInstallmentNumber * 15);
+            
+            // 4. Check if the due date is in 2 days and if reminder was already sent
+            const isDueForReminder = dueDate.getFullYear() === reminderDate.getFullYear() &&
+                                     dueDate.getMonth() === reminderDate.getMonth() &&
+                                     dueDate.getDate() === reminderDate.getDate();
+
+            if (isDueForReminder && request.lastReminderSentForInstallment !== nextInstallmentNumber) {
+                console.log(`[REMINDER_LOG] Request [${requestId}] is due for reminder for installment #${nextInstallmentNumber}.`);
+                
+                // 5. Get user's phone and send SMS
+                const userDoc = await db.collection('users').doc(request.userId).get();
+                if (!userDoc.exists || !userDoc.data().phone) {
+                    console.error(`[REMINDER_LOG] ERROR: User [${request.userId}] for request [${requestId}] not found or has no phone.`);
+                    return;
+                }
+                
+                const userData = userDoc.data();
+                const phoneNumber = userData.phone;
+                const clientName = userData.name.split(' ')[0]; // Just the first name
+                const amount = request.biweeklyPayment.toFixed(2);
+                
+                const message = `Hola ${clientName}, te recordamos que tu cuota de Alza de RD$${amount} vence en 2 dias. Gracias por tu pago puntual.`;
+                
+                // Send the SMS via iThesk API
+                const apiKey = functions.config().ithesk.apikey;
+                if (!apiKey) {
+                    console.error("[REMINDER_LOG] CRITICAL: iThesk API Key is not configured.");
+                    return;
+                }
+                
+                await fetch("http://sms.ithesk.com/send-sms/", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+                    body: JSON.stringify({ number: phoneNumber, message: message }),
+                });
+
+                console.log(`[REMINDER_LOG] Reminder SMS sent to ${phoneNumber} for request [${requestId}].`);
+
+                // 6. Update the request to prevent re-sending
+                return db.collection('requests').doc(requestId).update({
+                    lastReminderSentForInstallment: nextInstallmentNumber
+                });
+            }
+        });
+
+        await Promise.all(reminderPromises);
+        console.log('[REMINDER_LOG] Finished payment reminder check.');
+        return null;
+
+    } catch (error) {
+        console.error('[REMINDER_LOG] CRITICAL: An error occurred during the reminder process:', error);
+        return null;
+    }
+});
+
+
+
+// =======================================================================================
 // TEST FUNCTION TO DEBUG DATABASE CONNECTION
 // =======================================================================================
 exports.testDatabaseWrite = regionalFunctions.https.onCall(async (data, context) => {
@@ -475,6 +571,8 @@ exports.saveFinancingSettings = regionalFunctions.https.onCall(async (data, cont
         throw new functions.https.HttpsError("internal", "Could not save settings.");
     }
 });
+
+    
 
     
 
