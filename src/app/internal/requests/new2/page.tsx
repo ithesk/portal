@@ -27,6 +27,7 @@ import {
   Phone,
   Home,
   MessageSquare,
+  Laptop,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -471,7 +472,7 @@ function NewRequestForm() {
             userId: finalClient.id,
             requestId: requestDocRef.id,
             cedula: finalClient.cedula,
-            name: itemType === 'phone' ? 'Teléfono' : 'Tablet',
+            name: itemType,
             status: "Financiado",
             progress: 0,
             imageUrl: "https://placehold.co/600x400.png",
@@ -663,14 +664,24 @@ function NewRequestForm() {
                         <SelectValue placeholder="Selecciona un artículo" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="phone">
+                        <SelectItem value="iPhone">
                           <div className="flex items-center">
-                            <Smartphone className="mr-2 h-4 w-4" /> Teléfono
+                            <Smartphone className="mr-2 h-4 w-4" /> iPhone
                           </div>
                         </SelectItem>
-                        <SelectItem value="tablet">
+                        <SelectItem value="Android">
+                          <div className="flex items-center">
+                            <Smartphone className="mr-2 h-4 w-4" /> Android
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Tablet">
                           <div className="flex items-center">
                             <Tablet className="mr-2 h-4 w-4" /> Tablet
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Laptop">
+                          <div className="flex items-center">
+                            <Laptop className="mr-2 h-4 w-4" /> Laptop
                           </div>
                         </SelectItem>
                       </SelectContent>
@@ -719,7 +730,7 @@ function NewRequestForm() {
                     <div className="flex justify-between"><span>Precio del Equipo:</span><span className="font-medium">RD$ {itemValue.toFixed(2)}</span></div>
                     <div className="flex justify-between"><span>Inicial ({initialPercentage}%):</span><span className="font-medium">RD$ {initialPayment.toFixed(2)}</span></div>
                     <div className="flex justify-between font-semibold text-base border-t pt-2"><span>Monto a Financiar:</span><span>RD$ {financingAmount.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-muted-foreground"><span>Total Intereses ({(interestRate * 100).toFixed(1)}%):</span><span>RD$ {totalInterest.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-muted-foreground"><span>Total Intereses:</span><span>RD$ {totalInterest.toFixed(2)}</span></div>
                     <div className="flex justify-between text-muted-foreground"><span>Total en cuotas:</span><span>RD$ {totalToPayInInstallments.toFixed(2)}</span></div>
                     <div className="flex justify-between font-semibold text-lg text-primary border-t pt-2 mt-2"><span>Cuota Quincenal:</span><span>RD$ {biweeklyPayment.toFixed(2)}</span></div>
                     <div className="flex justify-between items-center text-xs text-muted-foreground pt-2 border-t">
@@ -797,3 +808,5 @@ export default function NewRequestPage() {
         </Suspense>
     );
 }
+
+    
