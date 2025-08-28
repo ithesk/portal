@@ -98,7 +98,7 @@ function NewRequestForm() {
   const [isUploading, setIsUploading] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [verificationId, setVerificationId] = useState<string | null>(null);
-  const [verificationData, setVerificationData] useState<any>(null);
+  const [verificationData, setVerificationData] = useState<any>(null);
   const [verifiedClientData, setVerifiedClientData] = useState<Partial<Client> | null>(null);
   const idImageRef = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState("");
