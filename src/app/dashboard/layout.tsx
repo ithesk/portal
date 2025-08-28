@@ -76,7 +76,7 @@ export default function DashboardLayout({
 
   const navItems = [
     { href: "/dashboard", icon: LayoutGrid, label: "Resumen" },
-    { href: "/dashboard/requests", icon: FileText, label: "Mis Solicitudes" },
+    { href: "/dashboard/requests", icon: FileText, label: "Solicitudes" },
     { href: "/dashboard/equipment", icon: Wrench, label: "Equipo" },
     { href: "/dashboard/payments", icon: DollarSign, label: "Pagos" },
   ];
