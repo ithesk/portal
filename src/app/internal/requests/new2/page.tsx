@@ -58,6 +58,7 @@ import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 
 const steps = [
@@ -75,6 +76,13 @@ interface Client {
     phone: string;
     address?: string;
 }
+
+const itemTypes = [
+    { id: 'iPhone', label: 'iPhone', icon: Smartphone },
+    { id: 'Android', label: 'Android', icon: Smartphone },
+    { id: 'Tablet', label: 'Tablet', icon: Tablet },
+    { id: 'Laptop', label: 'Laptop', icon: Laptop },
+]
 
 // Helper to convert File to Base64
 const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
@@ -295,7 +303,7 @@ function NewRequestForm() {
   };
 
   // Step 2
-  const [itemType, setItemType] = useState<string>("");
+  const [itemType, setItemType] = useState<string>("iPhone");
   const [itemValue, setItemValue] = useState(12500);
   const [initialPercentage, setInitialPercentage] = useState(40);
   const [installments, setInstallments] = useState(6);
@@ -657,35 +665,23 @@ function NewRequestForm() {
                   <CardDescription>
                     Selecciona el tipo de artículo e ingresa su valor de mercado.
                   </CardDescription>
-                  <div className="space-y-2">
-                    <Label htmlFor="item-type">Tipo de Artículo</Label>
-                    <Select onValueChange={setItemType} value={itemType} required>
-                      <SelectTrigger id="item-type">
-                        <SelectValue placeholder="Selecciona un artículo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="iPhone">
-                          <div className="flex items-center">
-                            <Smartphone className="mr-2 h-4 w-4" /> iPhone
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Android">
-                          <div className="flex items-center">
-                            <Smartphone className="mr-2 h-4 w-4" /> Android
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Tablet">
-                          <div className="flex items-center">
-                            <Tablet className="mr-2 h-4 w-4" /> Tablet
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Laptop">
-                          <div className="flex items-center">
-                            <Laptop className="mr-2 h-4 w-4" /> Laptop
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                   <div className="space-y-2">
+                    <Label>Tipo de Artículo</Label>
+                     <div className="grid grid-cols-2 gap-2 pt-1">
+                        {itemTypes.map((type) => (
+                           <Card 
+                             key={type.id}
+                             onClick={() => setItemType(type.id)}
+                             className={cn(
+                                "cursor-pointer p-4 flex flex-col items-center justify-center gap-2",
+                                itemType === type.id && "border-primary bg-primary/5"
+                             )}
+                           >
+                                <type.icon className="h-8 w-8 text-primary"/>
+                                <span className="font-medium text-sm">{type.label}</span>
+                           </Card>
+                        ))}
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -809,4 +805,3 @@ export default function NewRequestPage() {
     );
 }
 
-    

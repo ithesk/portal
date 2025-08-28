@@ -32,9 +32,17 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { cn } from "@/lib/utils";
+
+const itemTypes = [
+    { id: 'iPhone', label: 'iPhone', icon: Smartphone },
+    { id: 'Android', label: 'Android', icon: Smartphone },
+    { id: 'Tablet', label: 'Tablet', icon: Tablet },
+    { id: 'Laptop', label: 'Laptop', icon: Laptop },
+]
 
 export default function CalculatorPage() {
-  const [itemType, setItemType] = useState("");
+  const [itemType, setItemType] = useState("iPhone");
   const [itemValue, setItemValue] = useState(12500);
   const [initialPercentage, setInitialPercentage] = useState(40);
   const [installments, setInstallments] = useState(6);
@@ -110,35 +118,23 @@ export default function CalculatorPage() {
         <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
             <div className="space-y-6">
-                <div className="space-y-2">
+                 <div className="space-y-2">
                     <Label htmlFor="item-type">Tipo de Artículo</Label>
-                    <Select onValueChange={setItemType} value={itemType}>
-                      <SelectTrigger id="item-type">
-                        <SelectValue placeholder="Selecciona un artículo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="iPhone">
-                          <div className="flex items-center">
-                            <Smartphone className="mr-2 h-4 w-4" /> iPhone
-                          </div>
-                        </SelectItem>
-                         <SelectItem value="Android">
-                          <div className="flex items-center">
-                            <Smartphone className="mr-2 h-4 w-4" /> Android
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Tablet">
-                          <div className="flex items-center">
-                            <Tablet className="mr-2 h-4 w-4" /> Tablet
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Laptop">
-                          <div className="flex items-center">
-                            <Laptop className="mr-2 h-4 w-4" /> Laptop
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="grid grid-cols-2 gap-2">
+                        {itemTypes.map((type) => (
+                           <Card 
+                             key={type.id}
+                             onClick={() => setItemType(type.id)}
+                             className={cn(
+                                "cursor-pointer p-4 flex flex-col items-center justify-center gap-2",
+                                itemType === type.id && "border-primary bg-primary/5"
+                             )}
+                           >
+                                <type.icon className="h-8 w-8 text-primary"/>
+                                <span className="font-medium text-sm">{type.label}</span>
+                           </Card>
+                        ))}
+                    </div>
                   </div>
                 <div className="space-y-2">
                 <Label htmlFor="item-value">Precio del Equipo (RD$)</Label>
