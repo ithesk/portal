@@ -94,12 +94,11 @@ function MobileWelcomeView() {
         <div className="sm:hidden flex flex-col h-screen w-full bg-background">
             <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
                 <Image
-                    src="https://picsum.photos/seed/people/800/600"
+                    src="/welcome-illustration.svg"
                     alt="Bienvenida a Alza"
                     width={400}
                     height={300}
-                    className="w-full max-w-[300px] aspect-[4/3] object-cover rounded-2xl shadow-lg"
-                    data-ai-hint="happy person"
+                    className="w-full max-w-[300px] aspect-square object-contain"
                 />
                 <h1 className="text-4xl font-bold mt-8">Adelanta tus metas</h1>
                 <p className="text-muted-foreground text-lg mt-2 max-w-xs">
