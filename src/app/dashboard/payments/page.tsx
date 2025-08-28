@@ -22,6 +22,8 @@ import { collection, getDocs, query, where, orderBy, QueryDocumentSnapshot, Docu
 import { db, auth } from "@/lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { DollarSign } from "lucide-react";
 
 interface Payment {
   id: string;
@@ -46,7 +48,6 @@ export default function PaymentsPage() {
       try {
         setLoading(true);
         const paymentsRef = collection(db, "payments");
-        // Remove orderBy from the query to avoid the index error
         const q = query(paymentsRef, where("userId", "==", user.uid));
         const querySnapshot = await getDocs(q);
         const paymentsData = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
@@ -54,7 +55,6 @@ export default function PaymentsPage() {
           ...doc.data(),
         } as Payment));
         
-        // Sort the data on the client side
         paymentsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
         setPayments(paymentsData);
@@ -71,15 +71,16 @@ export default function PaymentsPage() {
   }, [user, userLoading]);
 
   return (
-    <Card>
+    <Card className="flex flex-col h-full">
       <CardHeader>
         <CardTitle>Historial de Pagos</CardTitle>
         <CardDescription>
           Un registro detallado de todos sus pagos realizados.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <Table>
+      <CardContent className="flex-1 min-h-0">
+        {/* Desktop View: Table */}
+        <Table className="hidden md:table">
           <TableHeader>
             <TableRow>
               <TableHead className="hidden w-[100px] sm:table-cell">
@@ -117,8 +118,9 @@ export default function PaymentsPage() {
                   <TableCell>
                     <Badge
                       variant={
-                        payment.status === "Completado" ? "outline" : "secondary"
+                        payment.status === "Completado" ? "default" : "secondary"
                       }
+                       className={payment.status === "Completado" ? "bg-green-100 text-green-800" : ""}
                     >
                       {payment.status}
                     </Badge>
@@ -138,6 +140,49 @@ export default function PaymentsPage() {
             )}
           </TableBody>
         </Table>
+
+        {/* Mobile View: Cards */}
+        <div className="grid gap-4 md:hidden">
+            {loading ? (
+                 Array.from({ length: 5 }).map((_, index) => (
+                    <Card key={index}>
+                        <CardContent className="p-4 space-y-2">
+                             <Skeleton className="h-6 w-2/3" />
+                             <Skeleton className="h-4 w-1/2" />
+                             <Skeleton className="h-4 w-1/3" />
+                        </CardContent>
+                    </Card>
+                 ))
+            ) : payments.length > 0 ? (
+                payments.map((payment) => (
+                    <Card key={payment.id}>
+                        <CardContent className="p-4 flex justify-between items-center">
+                            <div className="flex-1 space-y-1">
+                                <h3 className="font-semibold">{payment.equipment}</h3>
+                                <p className="text-sm text-muted-foreground">{payment.date} - {payment.method}</p>
+                                 <Badge
+                                    variant={payment.status === "Completado" ? "default" : "secondary"}
+                                    className={`${payment.status === "Completado" ? "bg-green-100 text-green-800" : ""} w-fit`}
+                                >
+                                    {payment.status}
+                                </Badge>
+                            </div>
+                            <div className="text-right">
+                                <p className="font-bold text-lg">{payment.amount}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))
+            ) : (
+                 <Alert className="border-none">
+                    <DollarSign className="h-4 w-4" />
+                    <AlertTitle>No hay pagos</AlertTitle>
+                    <AlertDescription>
+                        No has realizado ningún pago todavía.
+                    </AlertDescription>
+                </Alert>
+            )}
+        </div>
       </CardContent>
     </Card>
   );
