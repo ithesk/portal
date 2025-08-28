@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '../ui/skeleton';
-import { add, format } from 'date-fns';
+import { add, format, sub } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { CalendarClock } from 'lucide-react';
@@ -16,6 +16,7 @@ import { CalendarClock } from 'lucide-react';
 export interface ScheduleInfo {
     nextPaymentAmount: number;
     nextPaymentDate: string | null;
+    periodStartDate: string | null; // The start date of the current payment period
 }
 interface PaymentScheduleProps {
     userId: string;
@@ -53,7 +54,7 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
 
                 if (requestsSnapshot.empty) {
                     setSchedule([]);
-                    onScheduleCalculated({ nextPaymentAmount: 0, nextPaymentDate: null });
+                    onScheduleCalculated({ nextPaymentAmount: 0, nextPaymentDate: null, periodStartDate: null });
                     setLoading(false);
                     return;
                 }
@@ -101,15 +102,23 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
                 setSchedule(allUpcomingPayments.slice(0, 10));
 
                 const nextPayment = allUpcomingPayments[0];
+                let periodStartDate: string | null = null;
+                if (nextPayment) {
+                    // The period starts 15 days before the due date.
+                    const dueDate = new Date(nextPayment.paymentDate);
+                    periodStartDate = format(sub(dueDate, { days: 15 }), 'yyyy-MM-dd');
+                }
+                
                 onScheduleCalculated({
                     nextPaymentAmount: nextPayment?.amount || 0,
                     nextPaymentDate: nextPayment?.paymentDate || null,
+                    periodStartDate: periodStartDate
                 });
 
 
             } catch (error) {
                 console.error("Error calculating payment schedule: ", error);
-                 onScheduleCalculated({ nextPaymentAmount: 0, nextPaymentDate: null });
+                 onScheduleCalculated({ nextPaymentAmount: 0, nextPaymentDate: null, periodStartDate: null });
             } finally {
                 setLoading(false);
             }

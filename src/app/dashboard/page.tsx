@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, differenceInDays } from 'date-fns';
 import { PaymentSchedule, ScheduleInfo } from "@/components/shared/payment-schedule";
 import { PaymentInstructionsDialog } from "@/components/shared/payment-instructions-dialog";
 import { fetchPaymentProgress } from "@/ai/flows/fetch-payment-progress-flow";
@@ -158,6 +158,22 @@ export default function Dashboard() {
     ? (paymentProgress.installmentsPaid / paymentProgress.totalInstallments) * 100
     : 0;
 
+  const getTimeBarProgress = () => {
+    if (!scheduleInfo || !scheduleInfo.nextPaymentDate || !scheduleInfo.periodStartDate) {
+        return 0;
+    }
+    const today = new Date();
+    const startDate = parseISO(scheduleInfo.periodStartDate);
+    const dueDate = parseISO(scheduleInfo.nextPaymentDate);
+    
+    const totalDays = differenceInDays(dueDate, startDate);
+    const remainingDays = differenceInDays(dueDate, today);
+
+    if (totalDays <= 0 || remainingDays < 0) return 0;
+
+    return (remainingDays / totalDays) * 100;
+  }
+
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -185,9 +201,16 @@ export default function Dashboard() {
                     )}
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-primary-foreground/90 font-medium">
-                        {scheduleInfo?.nextPaymentDate ? `Vence el ${scheduleInfo.nextPaymentDate}` : 'No tienes pagos pendientes'}
-                    </p>
+                    <div className="flex justify-between items-center">
+                        <p className="text-sm text-primary-foreground/90 font-medium">
+                            {scheduleInfo?.nextPaymentDate ? `Vence el ${scheduleInfo.nextPaymentDate}` : 'No tienes pagos pendientes'}
+                        </p>
+                    </div>
+                     {scheduleInfo?.nextPaymentDate && (
+                         <div className="mt-2">
+                            <Progress value={getTimeBarProgress()} className="h-1 bg-white/30 [&>div]:bg-white" />
+                         </div>
+                    )}
                 </CardContent>
             </Card>
         </PaymentInstructionsDialog>
@@ -456,3 +479,4 @@ function DashboardSkeleton() {
         </div>
     );
 }
+
