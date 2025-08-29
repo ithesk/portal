@@ -1,0 +1,24 @@
+[
+    {
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.alza.financiamiento",
+        "sha256_cert_fingerprints": [
+          "AQUI_VA_TU_SHA256_FINGERPRINT_DE_DEBUG",
+          "AQUI_VA_TU_SHA256_FINGERPRINT_DE_PRODUCCION"
+        ]
+      }
+    },
+    {
+      "relation": ["delegate_permission/common.get_login_creds"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.alza.financiamiento", 
+        "sha256_cert_fingerprints": [
+          "AQUI_VA_TU_SHA256_FINGERPRINT_DE_DEBUG",
+          "AQUI_VA_TU_SHA256_FINGERPRINT_DE_PRODUCCION"
+        ]
+      }
+    }
+  ]
