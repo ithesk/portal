@@ -24,6 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, parseISO, differenceInDays } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { PaymentSchedule, ScheduleInfo } from "@/components/shared/payment-schedule";
 import { PaymentInstructionsDialog } from "@/components/shared/payment-instructions-dialog";
 import { fetchPaymentProgress } from "@/ai/flows/fetch-payment-progress-flow";
