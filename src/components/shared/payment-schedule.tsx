@@ -66,6 +66,7 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
                 const paymentsMade = paymentsSnapshot.docs.map(doc => doc.data());
                 
                 let allUpcomingPayments: ScheduleItem[] = [];
+                const timeZone = 'America/Santo_Domingo';
                 
                 for (const requestDoc of requestsSnapshot.docs) {
                     const request = requestDoc.data();
@@ -75,7 +76,6 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
                     
                     const paymentsForThisRequest = paymentsMade.filter(p => p.requestId === requestId).length;
                     
-                    const timeZone = 'America/Santo_Domingo';
                     const startDate = toZonedTime((request.createdAt as Timestamp).toDate(), timeZone);
 
                     for (let i = 0; i < request.installments; i++) {
