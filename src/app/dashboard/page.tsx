@@ -28,6 +28,8 @@ import { PaymentSchedule, ScheduleInfo } from "@/components/shared/payment-sched
 import { PaymentInstructionsDialog } from "@/components/shared/payment-instructions-dialog";
 import { fetchPaymentProgress } from "@/ai/flows/fetch-payment-progress-flow";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 
 interface Activity {
@@ -63,6 +65,7 @@ export default function Dashboard() {
       installmentsPaid: 0,
       totalInstallments: 0,
   });
+  const [activeMobileTab, setActiveMobileTab] = useState<'activity' | 'payments'>('activity');
 
 
   useEffect(() => {
@@ -169,9 +172,13 @@ export default function Dashboard() {
     const totalDays = differenceInDays(dueDate, startDate);
     const remainingDays = differenceInDays(dueDate, today);
 
-    if (totalDays <= 0 || remainingDays < 0) return 0;
+    if (totalDays <= 0 || remainingDays < 0) return 100; // If overdue, show full bar or handle differently
+    if (remainingDays > totalDays) return 0; // If payment is far in future
+    
+    // Invert the progress
+    const progress = ((totalDays - remainingDays) / totalDays) * 100;
 
-    return (remainingDays / totalDays) * 100;
+    return Math.max(0, Math.min(100, progress));
   }
 
 
@@ -222,26 +229,55 @@ export default function Dashboard() {
             </div>
             <Progress value={progressPercentage} className="w-full h-3" />
         </div>
+        
+        <div className="mb-4">
+            <div className="p-1 bg-muted rounded-full flex">
+                 <Button 
+                    onClick={() => setActiveMobileTab('activity')}
+                    className={cn(
+                        "flex-1 rounded-full h-10 transition-colors", 
+                        activeMobileTab === 'activity' ? 'bg-background text-foreground shadow-sm' : 'bg-transparent text-muted-foreground'
+                    )}
+                >
+                    Actividad Reciente
+                </Button>
+                <Button 
+                    onClick={() => setActiveMobileTab('payments')}
+                    className={cn(
+                        "flex-1 rounded-full h-10 transition-colors", 
+                        activeMobileTab === 'payments' ? 'bg-background text-foreground shadow-sm' : 'bg-transparent text-muted-foreground'
+                    )}
+                >
+                    Pagos Próximos
+                </Button>
+            </div>
+        </div>
 
         <div>
-            <h3 className="font-semibold text-lg mb-2">Actividad Reciente</h3>
-            <div className="space-y-3">
-                {recentActivity.length > 0 ? (
-                    recentActivity.map((activity) => (
-                        <div key={activity.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                            <div className="flex-1">
-                                <p className="font-medium text-sm">{activity.description}</p>
-                                <p className="text-xs text-muted-foreground">{activity.date} - {activity.status}</p>
+            {activeMobileTab === 'activity' && (
+                <div className="space-y-3 animate-in fade-in-20">
+                    {recentActivity.length > 0 ? (
+                        recentActivity.map((activity) => (
+                            <div key={activity.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                                <div className="flex-1">
+                                    <p className="font-medium text-sm">{activity.description}</p>
+                                    <p className="text-xs text-muted-foreground">{activity.date} - {activity.status}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-bold text-sm">{activity.amount || '-'}</p>
+                                </div>
                             </div>
-                            <div className="text-right">
-                                <p className="font-bold text-sm">{activity.amount || '-'}</p>
-                            </div>
-                        </div>
-                    ))
-                ) : (
-                     <p className="text-sm text-center text-muted-foreground py-6">No hay actividad reciente.</p>
-                )}
-            </div>
+                        ))
+                    ) : (
+                        <p className="text-sm text-center text-muted-foreground py-6">No hay actividad reciente.</p>
+                    )}
+                </div>
+            )}
+            {activeMobileTab === 'payments' && user && (
+                 <div className="animate-in fade-in-20">
+                    <PaymentSchedule userId={user.uid} onScheduleCalculated={setScheduleInfo} />
+                 </div>
+            )}
         </div>
     </div>
 
@@ -479,4 +515,3 @@ function DashboardSkeleton() {
         </div>
     );
 }
-

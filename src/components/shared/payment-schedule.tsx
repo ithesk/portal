@@ -70,7 +70,7 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
                     const request = requestDoc.data();
                     const requestId = requestDoc.id;
                     
-                    const equipmentName = request.itemType === 'phone' ? 'Teléfono' : 'Tablet'; 
+                    const equipmentName = request.itemType === 'phone' ? 'Teléfono' : request.itemType === 'tablet' ? 'Tablet' : request.itemType || 'Equipo';
                     
                     const paymentsForThisRequest = paymentsMade.filter(p => p.requestId === requestId).length;
                     
@@ -105,7 +105,7 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
                 let periodStartDate: string | null = null;
                 if (nextPayment) {
                     // The period starts 15 days before the due date.
-                    const dueDate = new Date(nextPayment.paymentDate);
+                    const dueDate = new Date(`${nextPayment.paymentDate}T00:00:00`); // Ensure correct date parsing
                     periodStartDate = format(sub(dueDate, { days: 15 }), 'yyyy-MM-dd');
                 }
                 
@@ -129,20 +129,18 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
 
     return (
         <Card className="flex flex-col">
-            <CardHeader className="px-7">
+            <CardHeader className="px-4 sm:px-7">
                 <CardTitle>Próximos Pagos</CardTitle>
                 <CardDescription>
                     Tu calendario de pagos pendientes.
                 </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0 sm:p-6 sm:pt-0">
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Equipo</TableHead>
-                            <TableHead>Cuota</TableHead>
-                            <TableHead>Fecha de Pago</TableHead>
-                            <TableHead>Estado</TableHead>
+                            <TableHead className="hidden sm:table-cell">Equipo</TableHead>
+                            <TableHead>Fecha</TableHead>
                             <TableHead className="text-right">Monto</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -150,23 +148,17 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
                         {loading ? (
                              Array.from({ length: 3 }).map((_, index) => (
                                 <TableRow key={index}>
+                                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                    <TableCell><Skeleton className="h-5 w-10" /></TableCell>
-                                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                                     <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
                                 </TableRow>
                             ))
                         ) : schedule.length > 0 ? (
                             schedule.map((item, index) => (
                                 <TableRow key={index}>
-                                    <TableCell className="font-medium">{item.equipmentName}</TableCell>
-                                    <TableCell>{item.installment}</TableCell>
+                                    <TableCell className="font-medium hidden sm:table-cell">{item.equipmentName}</TableCell>
                                     <TableCell>{item.paymentDate}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="secondary">{item.status}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right">RD$ {item.amount.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right font-semibold">RD$ {item.amount.toFixed(2)}</TableCell>
                                 </TableRow>
                             ))
                         ) : (
@@ -188,5 +180,3 @@ export function PaymentSchedule({ userId, onScheduleCalculated }: PaymentSchedul
         </Card>
     );
 }
-
-    
