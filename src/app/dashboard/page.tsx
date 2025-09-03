@@ -193,7 +193,7 @@ export default function Dashboard() {
     <div className="sm:hidden">
         <div className="mb-6">
             <h1 className="text-2xl font-bold text-foreground">
-                <span className="font-medium text-muted-foreground">¡Hola, </span> 
+                <span className="font-light">¡Hola, </span> 
                 {userProfile?.name ? userProfile.name.split(' ')[0] : "Cliente"}!
             </h1>
         </div>
@@ -239,7 +239,7 @@ export default function Dashboard() {
                     onClick={() => setActiveMobileTab('activity')}
                     className={cn(
                         "flex-1 rounded-full h-10 transition-colors", 
-                        activeMobileTab === 'activity' ? 'bg-background text-foreground shadow-sm' : 'bg-transparent text-muted-foreground'
+                        activeMobileTab === 'activity' ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90' : 'bg-transparent text-muted-foreground'
                     )}
                 >
                     Actividad Reciente
@@ -248,7 +248,7 @@ export default function Dashboard() {
                     onClick={() => setActiveMobileTab('payments')}
                     className={cn(
                         "flex-1 rounded-full h-10 transition-colors", 
-                        activeMobileTab === 'payments' ? 'bg-background text-foreground shadow-sm' : 'bg-transparent text-muted-foreground'
+                        activeMobileTab === 'payments' ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90' : 'bg-transparent text-muted-foreground'
                     )}
                 >
                     Pagos Próximos
