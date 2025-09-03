@@ -169,14 +169,14 @@ export default function Dashboard() {
     const startDate = parseISO(scheduleInfo.periodStartDate);
     const dueDate = parseISO(scheduleInfo.nextPaymentDate);
     
-    const totalDays = differenceInDays(dueDate, startDate);
-    const remainingDays = differenceInDays(dueDate, today);
+    const totalDaysInPeriod = differenceInDays(dueDate, startDate);
+    const daysLeft = differenceInDays(dueDate, today);
 
-    if (totalDays <= 0 || remainingDays < 0) return 100; // If overdue, show full bar or handle differently
-    if (remainingDays > totalDays) return 0; // If payment is far in future
+    if (totalDaysInPeriod <= 0 || daysLeft < 0) return 100; // Period is over or payment is past due
+    if (daysLeft > totalDaysInPeriod) return 0; // Payment is far in the future
     
-    // Invert the progress
-    const progress = ((totalDays - remainingDays) / totalDays) * 100;
+    const daysPassed = totalDaysInPeriod - daysLeft;
+    const progress = (daysPassed / totalDaysInPeriod) * 100;
 
     return Math.max(0, Math.min(100, progress));
   }
@@ -208,12 +208,12 @@ export default function Dashboard() {
                     )}
                 </CardHeader>
                 <CardContent>
-                    <div className="flex justify-between items-center">
-                        <p className="text-sm text-primary-foreground/90 font-medium">
-                            {scheduleInfo?.nextPaymentDate ? `Vence el ${scheduleInfo.nextPaymentDate}` : 'No tienes pagos pendientes'}
+                    <div className="flex justify-between items-center text-sm">
+                         <p className="text-primary-foreground/90 font-medium">
+                            {scheduleInfo?.nextPaymentDate ? `Vence el ${format(parseISO(scheduleInfo.nextPaymentDate), "dd 'de' MMMM", { locale: es })}` : 'No tienes pagos pendientes'}
                         </p>
                     </div>
-                     {scheduleInfo?.nextPaymentDate && (
+                     {scheduleInfo?.nextPaymentDate && scheduleInfo?.periodStartDate && (
                          <div className="mt-2">
                             <Progress value={getTimeBarProgress()} className="h-1 bg-white/30 [&>div]:bg-white" />
                          </div>
@@ -301,7 +301,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-xs text-muted-foreground">
-                    {scheduleInfo?.nextPaymentDate ? `Vence el ${scheduleInfo.nextPaymentDate}` : 'No tienes pagos pendientes'}
+                    {scheduleInfo?.nextPaymentDate ? `Vence el ${format(parseISO(scheduleInfo.nextPaymentDate), "dd 'de' MMMM", { locale: es })}` : 'No tienes pagos pendientes'}
                     </div>
                 </CardContent>
                 </Card>
