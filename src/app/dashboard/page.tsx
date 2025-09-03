@@ -192,8 +192,10 @@ export default function Dashboard() {
     {/* Mobile View */}
     <div className="sm:hidden">
         <div className="mb-6">
-            <p className="text-muted-foreground">Buenos días,</p>
-            <h1 className="text-2xl font-bold">{userProfile?.name || "Cliente"}</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+                <span className="font-medium text-muted-foreground">¡Hola, </span> 
+                {userProfile?.name ? userProfile.name.split(' ')[0] : "Cliente"}!
+            </h1>
         </div>
 
         <PaymentInstructionsDialog referenceCode={userProfile?.cedula}>
@@ -415,7 +417,6 @@ function DashboardSkeleton() {
         <div>
         {/* Mobile Skeleton */}
         <div className="sm:hidden">
-            <Skeleton className="h-5 w-32 mb-1" />
             <Skeleton className="h-8 w-48 mb-6" />
             <Skeleton className="h-32 w-full rounded-lg mb-6" />
              <div className="mb-6">
@@ -516,3 +517,4 @@ function DashboardSkeleton() {
         </div>
     );
 }
+
