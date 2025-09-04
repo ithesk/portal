@@ -44,6 +44,9 @@ interface Request extends DocumentData {
   itemType: string;
   imei: string;
   userId?: string;
+  // Add negotiated rate fields
+  negotiatedInterestRate?: number;
+  negotiatedInterestRatePercentage?: number;
 }
 
 export default function RequestsPage() {
@@ -104,6 +107,9 @@ export default function RequestsPage() {
             client: userName,
             createdAt: serverTimestamp(),
             requestId: request.id,
+            // Pass negotiated rate info to the equipment record for history
+            negotiatedInterestRate: request.negotiatedInterestRate ?? request.interestRate,
+            negotiatedInterestRatePercentage: request.negotiatedInterestRatePercentage ?? 0,
         };
         
         const newEquipmentRef = doc(collection(db, "equipment"));

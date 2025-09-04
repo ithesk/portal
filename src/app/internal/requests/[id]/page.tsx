@@ -14,6 +14,7 @@ import {
     Calendar,
     Pen,
     Loader2,
+    BadgePercent,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +46,8 @@ interface RequestData extends DocumentData {
     installments: number;
     imei: string;
     signatureDataUrl: string;
+    negotiatedInterestRate?: number;
+    negotiatedInterestRatePercentage?: number;
 }
 
 export default function RequestDetailsPage() {
@@ -87,6 +90,12 @@ export default function RequestDetailsPage() {
     if (!request) {
         return <p>No se encontró la solicitud.</p>;
     }
+
+    const appliedInterestRate = request.negotiatedInterestRate ?? request.interestRate ?? 0;
+    const appliedInterestPercentage = (appliedInterestRate * 100).toFixed(1);
+    const adjustmentText = request.negotiatedInterestRatePercentage 
+        ? `${request.negotiatedInterestRatePercentage > 0 ? '+' : ''}${request.negotiatedInterestRatePercentage}%`
+        : "0%";
 
     return (
         <div className="max-w-4xl mx-auto">
@@ -150,6 +159,13 @@ export default function RequestDetailsPage() {
                         <div className="flex justify-between"><span>Precio del Equipo:</span><span className="font-medium">RD$ {request.itemValue.toFixed(2)}</span></div>
                         <div className="flex justify-between"><span>Pago Inicial:</span><span className="font-medium">RD$ {request.initialPayment.toFixed(2)}</span></div>
                         <div className="flex justify-between font-semibold"><span>Monto a Financiar:</span><span className="font-medium">RD$ {request.financingAmount.toFixed(2)}</span></div>
+                         <div className="flex justify-between">
+                            <span className="flex items-center gap-1">
+                                <BadgePercent className="h-4 w-4" />
+                                Tasa de Interés Aplicada:
+                            </span>
+                            <span className="font-medium">{appliedInterestPercentage}% ({adjustmentText})</span>
+                         </div>
                         <div className="flex justify-between"><span>Cuotas:</span><span className="font-medium">{request.installments} Quincenales</span></div>
                         <div className="flex justify-between font-semibold text-primary text-base"><span>Valor de Cuota:</span><span className="font-medium">RD$ {request.biweeklyPayment.toFixed(2)}</span></div>
                     </CardContent>

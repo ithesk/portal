@@ -28,6 +28,7 @@ import {
   Home,
   MessageSquare,
   Laptop,
+  BadgePercent,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -309,6 +310,7 @@ function NewRequestForm() {
   const [installments, setInstallments] = useState(6);
   const [requestDate] = useState(new Date());
   const [interestRate, setInterestRate] = useState(0.525); // Default interest rate
+  const [rateAdjustment, setRateAdjustment] = useState(0); // in percentage points, e.g. -10 to 10
 
   // Fetch financing settings
   useEffect(() => {
@@ -346,10 +348,12 @@ function NewRequestForm() {
 
   const initialPayment = itemValue * (initialPercentage / 100);
   const financingAmount = itemValue - initialPayment;
-  const totalInterest = financingAmount * interestRate;
+  const negotiatedInterestRate = interestRate + (interestRate * (rateAdjustment / 100));
+  const totalInterest = financingAmount * negotiatedInterestRate;
   const totalToPayInInstallments = financingAmount + totalInterest;
   const biweeklyPayment = installments > 0 ? totalToPayInInstallments / installments : 0;
   const totalPaid = initialPayment + totalToPayInInstallments;
+
 
   const paymentDates = Array.from({ length: installments }, (_, i) => {
     const date = new Date(requestDate);
@@ -471,6 +475,9 @@ function NewRequestForm() {
             createdAt: serverTimestamp(),
             type: `Financiamiento de ${itemType}`,
             verificationData: verificationData,
+            interestRate: interestRate, // The general rate at the time
+            negotiatedInterestRate: negotiatedInterestRate, // The final rate applied
+            negotiatedInterestRatePercentage: rateAdjustment, // The % adjustment made
         });
         
         // Use a separate write for the equipment to avoid batch complexity here
@@ -722,11 +729,29 @@ function NewRequestForm() {
                   <CardTitle className="flex items-center">
                     <Calculator className="mr-2 h-5 w-5" /> Cálculo de Financiamiento
                   </CardTitle>
+                    <div className="space-y-4 pt-2">
+                         <Label htmlFor="rate-adjustment" className="flex items-center">
+                            <BadgePercent className="mr-2 h-4 w-4" />
+                            Ajuste de Tasa: {rateAdjustment > 0 && "+"}{rateAdjustment}%
+                         </Label>
+                         <Slider
+                            id="rate-adjustment"
+                            min={-10}
+                            max={10}
+                            step={1}
+                            value={[rateAdjustment]}
+                            onValueChange={(value) => setRateAdjustment(value[0])}
+                         />
+                         <CardDescription>
+                            Tasa General: {(interestRate * 100).toFixed(1)}%. Tasa Aplicada: {(negotiatedInterestRate * 100).toFixed(1)}%
+                         </CardDescription>
+                    </div>
+
                   <div className="rounded-lg border bg-muted p-4 space-y-3 text-sm">
                     <div className="flex justify-between"><span>Precio del Equipo:</span><span className="font-medium">RD$ {itemValue.toFixed(2)}</span></div>
                     <div className="flex justify-between"><span>Inicial ({initialPercentage}%):</span><span className="font-medium">RD$ {initialPayment.toFixed(2)}</span></div>
                     <div className="flex justify-between font-semibold text-base border-t pt-2"><span>Monto a Financiar:</span><span>RD$ {financingAmount.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-muted-foreground"><span>Total Intereses:</span><span>RD$ {totalInterest.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-muted-foreground"><span>Total Intereses ({(negotiatedInterestRate * 100).toFixed(1)}%):</span><span>RD$ {totalInterest.toFixed(2)}</span></div>
                     <div className="flex justify-between text-muted-foreground"><span>Total en cuotas:</span><span>RD$ {totalToPayInInstallments.toFixed(2)}</span></div>
                     <div className="flex justify-between font-semibold text-lg text-primary border-t pt-2 mt-2"><span>Cuota Quincenal:</span><span>RD$ {biweeklyPayment.toFixed(2)}</span></div>
                     <div className="flex justify-between items-center text-xs text-muted-foreground pt-2 border-t">
@@ -764,7 +789,7 @@ function NewRequestForm() {
                   <div className="border rounded-lg p-4 h-[350px] overflow-y-auto text-sm space-y-4 bg-muted/50">
                       <p>En {format(requestDate, "dd 'de' MMMM 'de' yyyy", { locale: es })}, se celebra este contrato entre <strong>ALZA C.A.</strong> y el cliente <strong>{activeClientName}</strong> con C.I. <strong>{clientFound?.cedula || verifiedClientData?.cedula}</strong>.</p>
                       <p>El cliente solicita el financiamiento de un <strong>{itemType || 'equipo'}</strong> valorado en <strong>RD$ {itemValue.toFixed(2)}</strong>.</p>
-                      <p>El cliente se compromete a pagar una inicial de <strong>RD$ {initialPayment.toFixed(2)}</strong> ({initialPercentage}%) y el monto restante de <strong>RD$ {financingAmount.toFixed(2)}</strong> más intereses de <strong>RD$ {totalInterest.toFixed(2)}</strong> será pagado en <strong>{installments} cuotas quincenales</strong> de <strong>RD$ {biweeklyPayment.toFixed(2)}</strong> cada una.</p>
+                      <p>El cliente se compromete a pagar una inicial de <strong>RD$ {initialPayment.toFixed(2)}</strong> ({initialPercentage}%) y el monto restante de <strong>RD$ {financingAmount.toFixed(2)}</strong> más intereses calculados a una tasa de <strong>{(negotiatedInterestRate * 100).toFixed(1)}%</strong>, será pagado en <strong>{installments} cuotas quincenales</strong> de <strong>RD$ {biweeklyPayment.toFixed(2)}</strong> cada una.</p>
                       <p className="pt-4">La falta de pago resultará en el bloqueo del equipo con IMEI <strong>{imei || "PENDIENTE"}</strong>.</p>
                   </div>
                 </div>
