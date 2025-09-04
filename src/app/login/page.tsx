@@ -8,15 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader, Lock, Mail } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -25,6 +27,9 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      // Set persistence based on the "Remember me" checkbox
+      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+      
       await signInWithEmailAndPassword(auth, email, password);
       router.push('/dashboard');
     } catch (error: any) {
@@ -99,11 +104,20 @@ export default function LoginPage() {
                     />
                 </div>
              </div>
-             <div className="text-right">
+              <div className="flex items-center justify-between">
+                 <div className="flex items-center space-x-2">
+                    <Checkbox id="remember-me-mobile" checked={rememberMe} onCheckedChange={(checked) => setRememberMe(!!checked)} />
+                    <label
+                        htmlFor="remember-me-mobile"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                        Recordarme
+                    </label>
+                </div>
                  <Button
                     type="button"
                     variant="link"
-                    className="p-0 h-auto font-semibold"
+                    className="p-0 h-auto font-semibold text-sm"
                     onClick={handlePasswordReset}
                     disabled={loading}
                     >
@@ -164,6 +178,15 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+            </div>
+             <div className="flex items-center space-x-2">
+                <Checkbox id="remember-me" checked={rememberMe} onCheckedChange={(checked) => setRememberMe(!!checked)} />
+                <label
+                    htmlFor="remember-me"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                    Recordarme
+                </label>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? <Loader className="animate-spin" /> : 'Iniciar Sesión'}
