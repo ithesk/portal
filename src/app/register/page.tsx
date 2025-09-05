@@ -160,6 +160,8 @@ export default function RegisterPage() {
                         <Label htmlFor="cedula">Cédula de Identidad</Label>
                         <Input 
                             id="cedula" 
+                            type="tel"
+                            inputMode="numeric"
                             placeholder="001-1234567-8" 
                             required 
                             value={cedula}
