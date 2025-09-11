@@ -33,7 +33,7 @@ const steps = [
 ]
 
 interface ExistingUser {
-    id: string; // Firestore document ID, which is the Auth UID
+    id: string; // Firestore document ID, which IS the Auth UID
     name: string;
     email: string;
 }
@@ -69,7 +69,7 @@ export default function RegisterPage() {
             const clientDoc = querySnapshot.docs[0];
             const clientData = clientDoc.data();
             setExistingUser({ 
-                id: clientDoc.id, 
+                id: clientDoc.id, // This IS the auth UID
                 name: clientData.name, 
                 email: clientData.email 
             });
@@ -124,15 +124,20 @@ export default function RegisterPage() {
             const functions = getFunctions();
             const updateUserByAdmin = httpsCallable(functions, 'updateUserByAdmin');
             
-            // We call this function which requires admin privileges on the backend
+            // This function requires admin privileges on the backend
             // to set the password for an existing user.
-            await updateUserByAdmin({
-                userId: existingUser.id,
+            const result: any = await updateUserByAdmin({
+                userId: existingUser.id, // <-- PASS THE CORRECT AUTH UID
                 password: password
             });
 
-            toast({ title: "Cuenta Activada", description: "Tu contraseña ha sido establecida. Ahora puedes iniciar sesión." });
-            router.push('/login');
+            if (result.data.success) {
+                toast({ title: "Cuenta Activada", description: "Tu contraseña ha sido establecida. Ahora puedes iniciar sesión." });
+                router.push('/login');
+            } else {
+                 throw new Error(result.data.message || 'La función de actualización falló.');
+            }
+
 
         } catch (error: any) {
             console.error("Error activating account:", error);
