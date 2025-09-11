@@ -571,6 +571,9 @@ exports.createNewUserByAdmin = regionalFunctions.https.onCall(async (data, conte
 
     } catch (error) {
         console.error('Error creando nuevo usuario por admin:', error);
+        if (error.code === 'auth/email-already-exists') {
+            throw new functions.https.HttpsError('already-exists', 'Ya existe un usuario con este correo electrónico.');
+        }
         throw new functions.https.HttpsError('internal', 'No se pudo crear el usuario.', error.message);
     }
 });
@@ -771,3 +774,4 @@ exports.backfillRequestUserIds = regionalFunctions.https.onCall(async (data, con
 
     
 
+    
