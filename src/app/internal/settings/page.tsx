@@ -13,10 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { backfillRequestUserId, BackfillOutput } from "@/ai/flows/backfill-request-user-id-flow";
 
 interface FinancingSettings {
     interestRate: number; // Stored as a decimal, e.g., 0.525 for 52.5%
@@ -29,6 +30,9 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<BackfillOutput | null>(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -44,7 +48,6 @@ export default function SettingsPage() {
                 setSettings(data);
                 setDisplayInterestRate((data.interestRate * 100).toString());
             } else {
-                 // If no settings exist, create a default one on the backend? No, let's just use a local default and save it on first save.
                  const defaultRate = 0.525;
                  setSettings({ interestRate: defaultRate });
                  setDisplayInterestRate((defaultRate * 100).toString());
@@ -58,7 +61,7 @@ export default function SettingsPage() {
         }
     }
     fetchSettings();
-  }, []);
+  }, [toast]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -85,6 +88,24 @@ export default function SettingsPage() {
         setSaving(false);
     }
   }
+
+  const handleRunBackfill = async () => {
+    setIsBackfilling(true);
+    setBackfillResult(null);
+    try {
+      const result = await backfillRequestUserId();
+      setBackfillResult(result);
+      if (result.success) {
+        toast({ title: "Proceso completado", description: result.message });
+      } else {
+        toast({ variant: "destructive", title: "Error en el proceso", description: result.message });
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error Crítico", description: "No se pudo ejecutar el flujo de corrección." });
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
 
 
   if (loading) {
@@ -151,6 +172,36 @@ export default function SettingsPage() {
                 Guardar Cambios
             </Button>
         </CardHeader>
+      </Card>
+       <Card>
+        <CardHeader>
+          <CardTitle>Herramientas del Sistema</CardTitle>
+          <CardDescription>
+            Ejecuta procesos para mantener la consistencia e integridad de los datos.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6">
+            <div className="space-y-2">
+              <Label>Corregir Solicitudes Antiguas</Label>
+              <p className="text-xs text-muted-foreground">
+                Este proceso busca solicitudes que no tengan un ID de usuario y se lo asigna buscando la cédula del cliente. Úsalo si un cliente creó una cuenta después de haberle generado una solicitud.
+              </p>
+            </div>
+             <Button onClick={handleRunBackfill} disabled={isBackfilling}>
+                {isBackfilling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Ejecutar Corrección
+            </Button>
+            {backfillResult && (
+              <Alert className="mt-4" variant={backfillResult.success ? "default" : "destructive"}>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>{backfillResult.success ? "Proceso Finalizado" : "Error en el Proceso"}</AlertTitle>
+                <AlertDescription>
+                  {backfillResult.message}
+                </AlertDescription>
+              </Alert>
+            )}
+        </CardContent>
       </Card>
     </div>
   );
