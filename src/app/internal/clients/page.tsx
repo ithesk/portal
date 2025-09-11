@@ -20,15 +20,27 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Search, Loader2, MoreHorizontal, Eye, Edit } from "lucide-react";
+import { PlusCircle, Search, Loader2, MoreHorizontal, Eye, Edit, KeyRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { collection, getDocs, QueryDocumentSnapshot, DocumentData, addDoc, serverTimestamp, query, where, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 interface Client {
   id: string;
@@ -39,6 +51,7 @@ interface Client {
   since: string;
   equipmentCount: number;
   role?: string;
+  cedula: string;
 }
 
 function NewClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
@@ -70,40 +83,21 @@ function NewClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
         }
 
         try {
-            // Check for duplicate cedula
-            const usersRef = collection(db, "users");
-            const q = query(usersRef, where("cedula", "==", formData.cedula));
-            const querySnapshot = await getDocs(q);
+            const functions = getFunctions();
+            const createNewUserByAdmin = httpsCallable(functions, 'createNewUserByAdmin');
+            const result: any = await createNewUserByAdmin(formData);
 
-            if (!querySnapshot.empty) {
+            if (result.data.success) {
                 toast({
-                    variant: "destructive",
-                    title: "Cédula duplicada",
-                    description: "Ya existe un cliente con este número de cédula."
+                    title: "Cliente Creado",
+                    description: "El nuevo cliente ha sido agregado exitosamente."
                 });
-                setLoading(false);
-                return;
+                onClientAdded();
+                setOpen(false);
+                setFormData({ name: "", email: "", phone: "", cedula: "" });
+            } else {
+                throw new Error(result.data.message || "La función para crear el cliente falló.");
             }
-
-
-            await addDoc(collection(db, "users"), {
-                name: formData.name,
-                email: formData.email,
-                phone: formData.phone,
-                cedula: formData.cedula,
-                role: "Cliente",
-                status: "Activo",
-                since: new Date().toLocaleDateString('es-DO'),
-                createdAt: serverTimestamp()
-            });
-
-            toast({
-                title: "Cliente Creado",
-                description: "El nuevo cliente ha sido agregado exitosamente."
-            });
-            onClientAdded();
-            setOpen(false);
-            setFormData({ name: "", email: "", phone: "", cedula: "" });
         } catch (error: any) {
             console.error("Error creating client: ", error);
             toast({
@@ -128,7 +122,7 @@ function NewClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
                 <DialogHeader>
                     <DialogTitle>Agregar Nuevo Cliente</DialogTitle>
                     <DialogDescription>
-                        Ingresa los datos del nuevo cliente. El cliente podrá usar su correo para iniciar sesión en el futuro (después de establecer una contraseña).
+                        Ingresa los datos del nuevo cliente. Se creará una cuenta de autenticación y un perfil en la base de datos.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -164,7 +158,10 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [isActivating, setIsActivating] = useState(false);
+  const [clientToAction, setClientToAction] = useState<Client | null>(null);
+  const [isActivationAlertOpen, setIsActivationAlertOpen] = useState(false);
+
   const [editFormData, setEditFormData] = useState({ email: "", phone: "" });
   const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
@@ -198,7 +195,7 @@ export default function ClientsPage() {
   }, []);
 
   const handleEditClick = (client: Client) => {
-    setSelectedClient(client);
+    setClientToAction(client);
     setEditFormData({
         email: client.contact,
         phone: client.phone || "",
@@ -212,10 +209,10 @@ export default function ClientsPage() {
   };
 
   const handleUpdateSubmit = async () => {
-    if (!selectedClient) return;
+    if (!clientToAction) return;
     setIsUpdating(true);
     try {
-        const clientRef = doc(db, "users", selectedClient.id);
+        const clientRef = doc(db, "users", clientToAction.id);
         await updateDoc(clientRef, {
             email: editFormData.email,
             contact: editFormData.email, // Assuming contact is email
@@ -230,6 +227,42 @@ export default function ClientsPage() {
         setIsUpdating(false);
     }
   };
+
+  const handleActivationClick = (client: Client) => {
+    setClientToAction(client);
+    setIsActivationAlertOpen(true);
+  };
+
+  const handleConfirmActivation = async () => {
+    if (!clientToAction) return;
+    setIsActivating(true);
+    try {
+        const functions = getFunctions();
+        const activateAndRelinkAccount = httpsCallable(functions, 'activateAndRelinkAccount');
+        const result: any = await activateAndRelinkAccount({ cedula: clientToAction.cedula });
+
+        if (result.data.success) {
+            toast({
+                title: "Cuenta Activada y Vinculada",
+                description: result.data.message,
+                duration: 8000,
+            });
+            fetchClients(); // Refresh the list
+        } else {
+            throw new Error(result.data.message || "La función de activación falló.");
+        }
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Error de Activación",
+            description: error.message,
+            duration: 8000,
+        });
+    } finally {
+        setIsActivating(false);
+    }
+  };
+
 
   return (
     <>
@@ -313,6 +346,10 @@ export default function ClientsPage() {
                             <DropdownMenuItem onClick={() => handleEditClick(client)}>
                                 <Edit className="mr-2 h-4 w-4" /> Editar Cliente
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                             <DropdownMenuItem onClick={() => handleActivationClick(client)} className="text-amber-600 focus:text-amber-700">
+                                <KeyRound className="mr-2 h-4 w-4" /> Activar Cuenta
+                            </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                   </TableCell>
@@ -329,7 +366,7 @@ export default function ClientsPage() {
             <DialogHeader>
                 <DialogTitle>Editar Cliente</DialogTitle>
                 <DialogDescription>
-                   Modifica la información de contacto de {selectedClient?.name}.
+                   Modifica la información de contacto de {clientToAction?.name}.
                 </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -351,6 +388,28 @@ export default function ClientsPage() {
             </DialogFooter>
         </DialogContent>
     </Dialog>
+    
+    <AlertDialog open={isActivationAlertOpen} onOpenChange={setIsActivationAlertOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>¿Activar la cuenta de {clientToAction?.name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                   Esta acción es para clientes que fueron creados por un gestor pero que no tienen una cuenta de autenticación para iniciar sesión.
+                   Se creará una cuenta con el correo <span className="font-bold">{clientToAction?.email}</span> y una contraseña temporal. Las solicitudes y equipos asociados a su cédula serán vinculados.
+                   Esta acción no se puede deshacer.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmActivation} disabled={isActivating} className="bg-amber-600 hover:bg-amber-700">
+                    {isActivating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+                     Sí, activar y vincular
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
+
+    

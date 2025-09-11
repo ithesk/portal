@@ -1,4 +1,5 @@
 
+
 const functions = require("firebase-functions/v1");
 const { initializeApp, applicationDefault } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -693,6 +694,99 @@ exports.saveFinancingSettings = regionalFunctions.https.onCall(async (data, cont
     }
 });
 
+
+// =======================================================================================
+// ACCOUNT RESCUE AND ACTIVATION FUNCTION
+// =======================================================================================
+exports.activateAndRelinkAccount = regionalFunctions.https.onCall(async (data, context) => {
+    // 1. Security Check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Debes estar autenticado para realizar esta acción.');
+    }
+    const callerDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (!callerDoc.exists || callerDoc.data().role !== 'Admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Solo los administradores pueden ejecutar esta herramienta.');
+    }
+
+    const { cedula } = data;
+    if (!cedula) {
+        throw new functions.https.HttpsError('invalid-argument', 'Se requiere la cédula del cliente.');
+    }
+
+    console.log(`[RESCUE_LOG] Starting account rescue for cedula: ${cedula}`);
+    const batch = db.batch();
+
+    try {
+        // 2. Find the "broken" user document in Firestore (where doc.id === cedula)
+        const oldUserRef = db.collection('users').doc(cedula);
+        const oldUserSnap = await oldUserRef.get();
+
+        if (!oldUserSnap.exists) {
+            throw new functions.https.HttpsError('not-found', `No se encontró un perfil de usuario con la cédula ${cedula} como ID. Es posible que la cuenta ya esté creada correctamente.`);
+        }
+        const oldUserData = oldUserSnap.data();
+        console.log(`[RESCUE_LOG] Found broken profile for ${oldUserData.email}`);
+
+        // 3. Create a new user in Firebase Auth
+        const tempPassword = Math.random().toString(36).slice(-8);
+        const userRecord = await admin.auth().createUser({
+            email: oldUserData.email,
+            emailVerified: false,
+            password: tempPassword,
+            displayName: oldUserData.name,
+            disabled: false,
+        });
+        const newUid = userRecord.uid;
+        console.log(`[RESCUE_LOG] Created new Auth user with UID: ${newUid}`);
+
+        // 4. Create the new, correct user document in Firestore
+        const newUserRef = db.collection('users').doc(newUid);
+        batch.set(newUserRef, oldUserData);
+        console.log(`[RESCUE_LOG] Staged creation of new user document with ID ${newUid}`);
+
+        // 5. Find and update all associated requests
+        const requestsQuery = db.collection('requests').where('cedula', '==', cedula);
+        const requestsSnapshot = await requestsQuery.get();
+        let requestsUpdated = 0;
+        requestsSnapshot.forEach(doc => {
+            batch.update(doc.ref, { userId: newUid });
+            requestsUpdated++;
+        });
+        console.log(`[RESCUE_LOG] Staged update for ${requestsUpdated} requests.`);
+
+        // 6. Find and update all associated equipment
+        const equipmentQuery = db.collection('equipment').where('cedula', '==', cedula);
+        const equipmentSnapshot = await equipmentQuery.get();
+        let equipmentUpdated = 0;
+        equipmentSnapshot.forEach(doc => {
+            batch.update(doc.ref, { userId: newUid });
+            equipmentUpdated++;
+        });
+        console.log(`[RESCUE_LOG] Staged update for ${equipmentUpdated} equipment items.`);
+
+        // 7. Delete the old, broken user document
+        batch.delete(oldUserRef);
+        console.log(`[RESCUE_LOG] Staged deletion of old user document ${cedula}`);
+
+        // 8. Commit all changes
+        await batch.commit();
+        console.log(`[RESCUE_LOG] Batch committed successfully.`);
+
+        return {
+            success: true,
+            message: `Cuenta para ${oldUserData.name} activada con éxito. La contraseña temporal es: ${tempPassword}. Se vincularon ${requestsUpdated} solicitudes y ${equipmentUpdated} equipos.`,
+        };
+
+    } catch (error) {
+        console.error(`[RESCUE_LOG] CRITICAL ERROR for cedula ${cedula}:`, error);
+        if (error.code === 'auth/email-already-exists') {
+            throw new functions.https.HttpsError('already-exists', 'El correo de este usuario ya está en uso en una cuenta de autenticación. Es posible que la cuenta ya esté activada.');
+        }
+        throw new functions.https.HttpsError('internal', `No se pudo rescatar la cuenta: ${error.message}`);
+    }
+});
+
+
 // =======================================================================================
 // SYSTEM TOOLS / BACKFILL FUNCTIONS
 // =======================================================================================
@@ -764,6 +858,8 @@ exports.backfillRequestUserIds = regionalFunctions.https.onCall(async (data, con
         };
     }
 });
+    
+
     
 
     
