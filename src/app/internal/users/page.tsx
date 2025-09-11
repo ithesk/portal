@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, MoreHorizontal, Search, AlertCircle, Loader2 } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Search, AlertCircle, Loader2, Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -43,6 +43,7 @@ interface User {
   id: string;
   name: string;
   email: string;
+  phone: string;
   role: string;
   lastLogin: string;
 }
@@ -54,9 +55,17 @@ export default function UsersPage() {
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [newRole, setNewRole] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
+
+  const [editFormData, setEditFormData] = useState({
+      name: "",
+      email: "",
+      phone: "",
+      role: "",
+      password: ""
+  });
+
 
   const fetchUsers = async () => {
     try {
@@ -103,34 +112,67 @@ export default function UsersPage() {
   
   const handleEditClick = (user: User) => {
     setSelectedUser(user);
-    setNewRole(user.role);
+    setEditFormData({
+        name: user.name,
+        email: user.email,
+        phone: user.phone || "",
+        role: user.role,
+        password: "" // Always start with empty password
+    });
     setIsEditDialogOpen(true);
   };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setEditFormData(prev => ({...prev, [id]: value }));
+  };
+
+  const handleRoleChange = (value: string) => {
+     setEditFormData(prev => ({...prev, role: value }));
+  }
   
-  const handleRoleChange = async () => {
-    if (!selectedUser || !newRole) return;
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return;
     
     setIsUpdating(true);
     try {
-      const userDocRef = doc(db, "users", selectedUser.id);
-      await updateDoc(userDocRef, { role: newRole });
-      toast({
-        title: "Éxito",
-        description: `El rol de ${selectedUser.name} ha sido actualizado a ${newRole}.`,
-      });
-      // Refresh user list
-      fetchUsers();
+      const functions = getFunctions();
+      const updateUserByAdmin = httpsCallable(functions, 'updateUserByAdmin');
+      
+      const payload: any = {
+        userId: selectedUser.id,
+        name: editFormData.name,
+        email: editFormData.email,
+        phone: editFormData.phone,
+        role: editFormData.role,
+      };
+      
+      if (editFormData.password) {
+        payload.password = editFormData.password;
+      }
+      
+      const result: any = await updateUserByAdmin(payload);
+      
+      if (result.data.success) {
+        toast({
+          title: "Éxito",
+          description: `El usuario ${selectedUser.name} ha sido actualizado.`,
+        });
+        fetchUsers(); // Refresh user list
+        setIsEditDialogOpen(false);
+      } else {
+        throw new Error(result.data.message || "La función falló sin un mensaje de error.");
+      }
+      
     } catch (err: any) {
-      console.error("Error updating role: ", err);
+      console.error("Error updating user: ", err);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "No se pudo actualizar el rol. " + err.message,
+        title: "Error al actualizar",
+        description: err.message || "No se pudo actualizar el usuario.",
       });
     } finally {
       setIsUpdating(false);
-      setIsEditDialogOpen(false);
-      setSelectedUser(null);
     }
   };
 
@@ -221,7 +263,7 @@ export default function UsersPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleEditClick(user)}>Editar Permisos</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditClick(user)}>Editar Usuario</DropdownMenuItem>
                             <DropdownMenuItem>Reenviar Invitación</DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive">Revocar Acceso</DropdownMenuItem>
                           </DropdownMenuContent>
@@ -236,20 +278,30 @@ export default function UsersPage() {
       </Card>
       
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Editar Permisos para {selectedUser?.name}</DialogTitle>
+            <DialogTitle>Editar Usuario: {selectedUser?.name}</DialogTitle>
             <DialogDescription>
-              Selecciona el nuevo rol para este usuario. Ten en cuenta que los cambios de permisos son críticos.
+              Modifica los datos del usuario. La contraseña es opcional.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+             <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">Nombre</Label>
+                <Input id="name" value={editFormData.name} onChange={handleInputChange} className="col-span-3" />
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="email" className="text-right">Correo</Label>
+                <Input id="email" type="email" value={editFormData.email} onChange={handleInputChange} className="col-span-3" />
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="phone" className="text-right">Teléfono</Label>
+                <Input id="phone" type="tel" value={editFormData.phone} onChange={handleInputChange} className="col-span-3" />
+            </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="role" className="text-right">
-                Rol
-              </Label>
+              <Label htmlFor="role" className="text-right">Rol</Label>
               <div className="col-span-3">
-                 <Select value={newRole} onValueChange={setNewRole}>
+                 <Select value={editFormData.role} onValueChange={handleRoleChange}>
                     <SelectTrigger>
                         <SelectValue placeholder="Selecciona un rol" />
                     </SelectTrigger>
@@ -261,10 +313,22 @@ export default function UsersPage() {
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="password" className="text-right">
+                    <div className="flex flex-col items-end">
+                       <span>Contraseña</span>
+                       <span className="text-xs text-muted-foreground">(Opcional)</span>
+                    </div>
+                </Label>
+                <div className="col-span-3 relative">
+                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="password" type="password" value={editFormData.password} onChange={handleInputChange} placeholder="Dejar en blanco para no cambiar" className="pl-9" />
+                </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleRoleChange} disabled={isUpdating}>
+            <Button onClick={handleUpdateUser} disabled={isUpdating}>
               {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar Cambios
             </Button>
@@ -274,3 +338,5 @@ export default function UsersPage() {
     </>
   );
 }
+
+    

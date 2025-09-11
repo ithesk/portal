@@ -530,6 +530,70 @@ exports.listAllUsers = regionalFunctions.https.onCall(async (data, context) => {
 });
 
 
+// =======================================================================================
+// ADMIN USER MANAGEMENT FUNCTION
+// =======================================================================================
+exports.updateUserByAdmin = regionalFunctions.https.onCall(async (data, context) => {
+  // 1. Security Check: Ensure caller is an Admin
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+  }
+  const callerDoc = await db.collection('users').doc(context.auth.uid).get();
+  if (!callerDoc.exists || callerDoc.data().role !== 'Admin') {
+    throw new functions.https.HttpsError('permission-denied', 'Only admins can perform this action.');
+  }
+
+  const { userId, name, email, phone, role, password } = data;
+
+  if (!userId) {
+    throw new functions.https.HttpsError('invalid-argument', 'The "userId" is required.');
+  }
+
+  try {
+    // 2. Prepare updates for Auth and Firestore
+    const authUpdates = {};
+    const firestoreUpdates = {};
+
+    if (email) authUpdates.email = email;
+    if (password) {
+        if (password.length < 6) {
+            throw new functions.https.HttpsError('invalid-argument', 'La contraseña debe tener al menos 6 caracteres.');
+        }
+        authUpdates.password = password;
+    }
+    if (name) authUpdates.displayName = name;
+
+    if (name) firestoreUpdates.name = name;
+    if (email) firestoreUpdates.email = email;
+    if (phone) firestoreUpdates.phone = phone;
+    if (role) firestoreUpdates.role = role;
+    
+
+    // 3. Perform updates
+    // Update Firebase Auth user
+    if (Object.keys(authUpdates).length > 0) {
+      await admin.auth().updateUser(userId, authUpdates);
+    }
+    
+    // Update Firestore user document
+    if (Object.keys(firestoreUpdates).length > 0) {
+      const userDocRef = db.collection('users').doc(userId);
+      await userDocRef.update(firestoreUpdates);
+    }
+
+    console.log(`Admin ${context.auth.uid} successfully updated user ${userId}.`);
+    return { success: true, message: 'Usuario actualizado correctamente.' };
+
+  } catch (error) {
+    console.error(`Error updating user ${userId} by admin ${context.auth.uid}:`, error);
+    if (error.code && error.code.startsWith('auth/')) {
+        throw new functions.https.HttpsError('invalid-argument', error.message);
+    }
+    throw new functions.https.HttpsError('internal', 'No se pudo actualizar el usuario.', error.message);
+  }
+});
+
+
 exports.getFinancingSettings = regionalFunctions.https.onCall(async (data, context) => {
     const settingsRef = db.collection("config").doc("financing");
     try {
@@ -571,6 +635,8 @@ exports.saveFinancingSettings = regionalFunctions.https.onCall(async (data, cont
         throw new functions.https.HttpsError("internal", "Could not save settings.");
     }
 });
+
+    
 
     
 
