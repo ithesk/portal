@@ -788,7 +788,7 @@ exports.activateAndRelinkAccount = regionalFunctions.https.onCall(async (data, c
 
 
 // =======================================================================================
-// SYSTEM TOOLS / BACKFILL FUNCTIONS
+// SYSTEM TOOLS / BACKFILL & MIGRATION FUNCTIONS
 // =======================================================================================
 exports.backfillRequestUserIds = regionalFunctions.https.onCall(async (data, context) => {
     // Security Check: Only allow admins to run this
@@ -856,6 +856,66 @@ exports.backfillRequestUserIds = regionalFunctions.https.onCall(async (data, con
             success: false,
             message: `Error durante la corrección: ${error.message}`,
         };
+    }
+});
+
+
+exports.migrateUserData = regionalFunctions.https.onCall(async (data, context) => {
+    if (!context.auth || (await db.collection('users').doc(context.auth.uid).get()).data()?.role !== 'Admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Solo los administradores pueden ejecutar esta herramienta.');
+    }
+
+    const { sourceId, destinationId } = data;
+    if (!sourceId || !destinationId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Se requieren "sourceId" y "destinationId".');
+    }
+
+    const batch = db.batch();
+    const sourceRef = db.collection('users').doc(sourceId);
+    const destRef = db.collection('users').doc(destinationId);
+    
+    try {
+        const sourceDoc = await sourceRef.get();
+        if (!sourceDoc.exists) {
+            throw new functions.https.HttpsError('not-found', `No se encontró el documento de origen con ID: ${sourceId}`);
+        }
+        const sourceData = sourceDoc.data();
+        const cedula = sourceData.cedula;
+
+        // 1. Copy/merge data from source to destination
+        batch.set(destRef, sourceData, { merge: true });
+
+        // 2. Find and update related requests and equipment
+        let requestsUpdated = 0;
+        let equipmentUpdated = 0;
+        
+        if (cedula) {
+            const requestsQuery = db.collection('requests').where('cedula', '==', cedula);
+            const requestsSnapshot = await requestsQuery.get();
+            requestsSnapshot.forEach(doc => {
+                batch.update(doc.ref, { userId: destinationId });
+                requestsUpdated++;
+            });
+            
+            const equipmentQuery = db.collection('equipment').where('cedula', '==', cedula);
+            const equipmentSnapshot = await equipmentQuery.get();
+            equipmentSnapshot.forEach(doc => {
+                batch.update(doc.ref, { userId: destinationId });
+                equipmentUpdated++;
+            });
+        }
+        
+        // 3. Delete the source document
+        batch.delete(sourceRef);
+
+        await batch.commit();
+        
+        const message = `Migración completa. Datos copiados a ${destinationId}. Se actualizaron ${requestsUpdated} solicitudes y ${equipmentUpdated} equipos. El documento de origen ${sourceId} fue eliminado.`;
+        return { success: true, message: message };
+
+    } catch (error) {
+        console.error(`MIGRATION ERROR: from ${sourceId} to ${destinationId}`, error);
+        throw new functions.https.HttpsError('internal', `La migración falló: ${error.message}`);
     }
 });
     

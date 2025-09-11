@@ -13,16 +13,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw, Copy, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { Separator } from "@/components/ui/separator";
 
 interface FinancingSettings {
     interestRate: number; // Stored as a decimal, e.g., 0.525 for 52.5%
 }
 
-interface BackfillOutput {
+interface ProcessOutput {
     success: boolean;
     message: string;
     requestsChecked?: number;
@@ -39,7 +40,12 @@ export default function SettingsPage() {
   const { toast } = useToast();
 
   const [isBackfilling, setIsBackfilling] = useState(false);
-  const [backfillResult, setBackfillResult] = useState<BackfillOutput | null>(null);
+  const [backfillResult, setBackfillResult] = useState<ProcessOutput | null>(null);
+  
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationResult, setMigrationResult] = useState<ProcessOutput | null>(null);
+  const [sourceId, setSourceId] = useState("");
+  const [destinationId, setDestinationId] = useState("");
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -104,7 +110,7 @@ export default function SettingsPage() {
       const backfillFunction = httpsCallable(functions, 'backfillRequestUserIds');
       const result: any = await backfillFunction();
       
-      setBackfillResult(result.data as BackfillOutput);
+      setBackfillResult(result.data as ProcessOutput);
 
       if (result.data.success) {
         toast({ title: "Proceso completado", description: result.data.message });
@@ -116,6 +122,34 @@ export default function SettingsPage() {
       toast({ variant: "destructive", title: "Error Crítico", description: `No se pudo ejecutar la función: ${err.message}` });
     } finally {
       setIsBackfilling(false);
+    }
+  };
+  
+  const handleRunMigration = async () => {
+    if (!sourceId || !destinationId) {
+        toast({variant: 'destructive', title: 'IDs requeridos', description: 'Debes proporcionar ambos IDs, el de origen y el de destino.'});
+        return;
+    }
+    setIsMigrating(true);
+    setMigrationResult(null);
+    try {
+      const functions = getFunctions();
+      const migrateFunction = httpsCallable(functions, 'migrateUserData');
+      const result: any = await migrateFunction({ sourceId, destinationId });
+      
+      setMigrationResult(result.data as ProcessOutput);
+
+      if (result.data.success) {
+        toast({ title: "Migración Exitosa", description: result.data.message });
+      } else {
+        toast({ variant: "destructive", title: "Error de Migración", description: result.data.message });
+      }
+
+    } catch (err: any) {
+      console.error("Error calling migration function:", err);
+      toast({ variant: "destructive", title: "Error Crítico", description: `No se pudo ejecutar la función de migración: ${err.message}` });
+    } finally {
+        setIsMigrating(false);
     }
   };
 
@@ -213,6 +247,43 @@ export default function SettingsPage() {
                 </AlertDescription>
               </Alert>
             )}
+            
+            <Separator className="my-4" />
+            
+            <div className="space-y-2">
+               <Label className="text-base font-semibold">Herramienta de Migración de Usuario</Label>
+               <p className="text-xs text-muted-foreground">
+                 Usa esta herramienta para transferir los datos de un documento de usuario corrupto (origen) a uno correcto (destino) y re-vincular sus solicitudes/equipos. El documento de origen será eliminado.
+               </p>
+            </div>
+             <div className="flex flex-col md:flex-row items-center gap-4">
+                <div className="flex-1 w-full space-y-2">
+                    <Label htmlFor="sourceId">ID de Origen (Documento a copiar y eliminar)</Label>
+                    <Input id="sourceId" value={sourceId} onChange={e => setSourceId(e.target.value)} placeholder="ID de documento viejo"/>
+                </div>
+                <div className="hidden md:block pt-6">
+                     <ArrowRight className="h-6 w-6 text-muted-foreground"/>
+                </div>
+                <div className="flex-1 w-full space-y-2">
+                    <Label htmlFor="destinationId">ID de Destino (Documento correcto)</Label>
+                    <Input id="destinationId" value={destinationId} onChange={e => setDestinationId(e.target.value)} placeholder="ID de documento nuevo (UID de Auth)"/>
+                </div>
+             </div>
+              <Button onClick={handleRunMigration} disabled={isMigrating} variant="destructive">
+                {isMigrating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Copy className="mr-2 h-4 w-4" />
+                Ejecutar Migración
+            </Button>
+             {migrationResult && (
+              <Alert className="mt-4" variant={migrationResult.success ? "default" : "destructive"}>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>{migrationResult.success ? "Migración Finalizada" : "Error en la Migración"}</AlertTitle>
+                <AlertDescription>
+                  {migrationResult.message}
+                </AlertDescription>
+              </Alert>
+            )}
+
         </CardContent>
       </Card>
     </div>
