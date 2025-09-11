@@ -70,7 +70,7 @@ const steps = [
 ];
 
 interface Client {
-    id: string;
+    id: string; // This is the Auth UID
     name: string;
     cedula: string;
     email: string;
@@ -387,33 +387,35 @@ function NewRequestForm() {
         
         setLoading(true);
         try {
-            // This is a new user, create their document.
-            const userDocRef = doc(collection(db, "users"));
-            const userData = {
-                uid: userDocRef.id, // Store the auto-generated ID as uid
+            const functions = getFunctions();
+            const createNewUserByAdmin = httpsCallable(functions, 'createNewUserByAdmin');
+            const result: any = await createNewUserByAdmin({
                 name: verifiedClientData.name,
-                cedula: verifiedClientData.cedula,
                 email: email,
                 phone: phone,
-                address: address, // Save the address
-                role: "Cliente",
-                status: "Activo",
-                since: new Date().toLocaleDateString('es-DO'),
-                createdAt: serverTimestamp(),
-            }
-            await setDoc(userDocRef, userData);
-            
-            // Set the newly created client as the one for the request
-            setClientFound({
-                id: userDocRef.id,
-                ...userData
+                cedula: verifiedClientData.cedula,
+                address: address,
             });
-            toast({ title: "Cliente Creado", description: "El nuevo cliente ha sido guardado." });
-            setCurrentStep(2);
+
+            if (result.data.success) {
+                const newClient: Client = {
+                    id: result.data.uid,
+                    name: verifiedClientData.name!,
+                    cedula: verifiedClientData.cedula!,
+                    email: email,
+                    phone: phone,
+                    address: address,
+                };
+                setClientFound(newClient);
+                toast({ title: "Cliente Creado", description: "El nuevo cliente ha sido guardado con una contraseña temporal '123456'." });
+                setCurrentStep(2);
+            } else {
+                throw new Error(result.data.message || 'No se pudo crear el usuario.');
+            }
             
-        } catch (error) {
-            console.error("Error creating new client", error);
-            toast({ variant: "destructive", title: "Error", description: "No se pudo guardar el nuevo cliente." });
+        } catch (error: any) {
+            console.error("Error creating new client via function", error);
+            toast({ variant: "destructive", title: "Error", description: `No se pudo guardar el nuevo cliente: ${error.message}` });
         } finally {
             setLoading(false);
         }
@@ -829,4 +831,3 @@ export default function NewRequestPage() {
         </Suspense>
     );
 }
-

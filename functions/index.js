@@ -528,6 +528,53 @@ exports.listAllUsers = regionalFunctions.https.onCall(async (data, context) => {
 // =======================================================================================
 // ADMIN USER MANAGEMENT FUNCTION
 // =======================================================================================
+
+exports.createNewUserByAdmin = regionalFunctions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Debes estar autenticado.');
+    }
+    const callerDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (!callerDoc.exists || callerDoc.data().role !== 'Admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Solo los administradores pueden crear usuarios.');
+    }
+
+    const { email, name, phone, cedula, address } = data;
+    if (!email || !name || !cedula) {
+        throw new functions.https.HttpsError('invalid-argument', 'Se requieren nombre, correo y cédula.');
+    }
+
+    try {
+        // 1. Create user in Firebase Auth
+        const userRecord = await admin.auth().createUser({
+            email: email,
+            emailVerified: false,
+            password: '123456', // Default temporary password
+            displayName: name,
+            disabled: false,
+        });
+        
+        // 2. Create user document in Firestore using the Auth UID
+        const userDocRef = db.collection('users').doc(userRecord.uid);
+        await userDocRef.set({
+            name: name,
+            email: email,
+            phone: phone || '',
+            address: address || '',
+            cedula: cedula,
+            role: 'Cliente',
+            status: 'Activo',
+            since: new Date().toLocaleDateString("es-DO"),
+            createdAt: FieldValue.serverTimestamp(),
+        });
+        
+        return { success: true, uid: userRecord.uid, message: 'Usuario creado exitosamente.' };
+
+    } catch (error) {
+        console.error('Error creando nuevo usuario por admin:', error);
+        throw new functions.https.HttpsError('internal', 'No se pudo crear el usuario.', error.message);
+    }
+});
+
 exports.updateUserByAdmin = regionalFunctions.https.onCall(async (data, context) => {
   // 1. Security Check: Ensure caller is an Admin
   if (!context.auth) {
@@ -543,6 +590,7 @@ exports.updateUserByAdmin = regionalFunctions.https.onCall(async (data, context)
   if (!userId) {
     throw new functions.https.HttpsError('invalid-argument', 'The "userId" is required.');
   }
+  console.log(`[ADMIN_UPDATE] Received request to update user with Auth UID: ${userId}`);
 
   try {
     // 2. Prepare updates for Auth and Firestore
@@ -575,7 +623,6 @@ exports.updateUserByAdmin = regionalFunctions.https.onCall(async (data, context)
     
     // Update Firestore user document only if there are changes for Firestore
     if (Object.keys(firestoreUpdates).length > 0) {
-      // The document ID in the 'users' collection is the UID from Auth
       const userDocRef = db.collection('users').doc(userId);
       await userDocRef.update(firestoreUpdates);
       console.log(`[ADMIN_UPDATE] Firestore document for ${userId} updated.`);
@@ -587,7 +634,6 @@ exports.updateUserByAdmin = regionalFunctions.https.onCall(async (data, context)
   } catch (error) {
     console.error(`Error updating user ${userId} by admin ${context.auth.uid}:`, error);
     if (error.code && error.code.startsWith('auth/')) {
-        // Provide more specific feedback for common auth errors
         if (error.code === 'auth/user-not-found') {
             throw new functions.https.HttpsError('not-found', `No se encontró un usuario de autenticación con el ID: ${userId}.`);
         }
