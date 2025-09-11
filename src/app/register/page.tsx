@@ -17,12 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDocs, query, where, collection } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { Loader, ChevronLeft, ChevronRight, User, Fingerprint, Lock, Phone } from "lucide-react";
+import { Loader, ChevronLeft, ChevronRight, User, Fingerprint, Lock, Phone, Mail, UserCheck, AlertCircle } from "lucide-react";
 import { linkEquipmentToUser } from "@/ai/flows/link-equipment-flow";
 import { LogoIcon } from "@/components/shared/logo";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const steps = [
     { id: 1, title: "Identificación", icon: Fingerprint },
@@ -37,15 +38,51 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [cedula, setCedula] = useState('');
   const [phone, setPhone] = useState('');
+  
   const [loading, setLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const [existingUser, setExistingUser] = useState<{name: string, email: string} | null>(null);
+
   const router = useRouter();
   const { toast } = useToast();
 
+  const handleCedulaCheck = async () => {
+    if (!cedula) {
+      toast({ variant: "destructive", title: "Cédula requerida", description: "Por favor, ingresa tu cédula." });
+      return;
+    }
+    setIsSearching(true);
+    try {
+        const q = query(collection(db, "users"), where("cedula", "==", cedula));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            const clientDoc = querySnapshot.docs[0].data();
+            setExistingUser({ name: clientDoc.name, email: clientDoc.email });
+            setName(clientDoc.name);
+            setEmail(clientDoc.email);
+            setPhone(clientDoc.phone || '');
+            // Skip the contact details step
+            setStep(3); 
+        } else {
+            setExistingUser(null);
+            // Proceed to the next step to enter details
+            setStep(2);
+        }
+
+    } catch (error: any) {
+        toast({ variant: "destructive", title: "Error de Búsqueda", description: "No se pudo verificar la cédula." });
+    } finally {
+        setIsSearching(false);
+    }
+  }
+
+
   const nextStep = () => {
-    // Add validation before going to the next step
-    if (step === 1 && !cedula) {
-        toast({ variant: "destructive", title: "Cédula requerida", description: "Por favor, ingresa tu cédula." });
-        return;
+    if (step === 1) {
+      handleCedulaCheck();
+      return;
     }
      if (step === 2 && (!name || !email || !phone)) {
         toast({ variant: "destructive", title: "Campos requeridos", description: "Por favor, completa nombre, correo y teléfono." });
@@ -65,25 +102,22 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    if (!name || !email || !password || !cedula) {
+    if (!email || !password || !cedula) {
         toast({
             variant: "destructive",
-            title: "Campos requeridos",
-            description: "Por favor, completa todos los campos para registrarte."
+            title: "Faltan datos cruciales",
+            description: "El correo, la contraseña y la cédula son requeridos."
         });
         setLoading(false);
         return;
     }
     
     try {
-      // 1. Create Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // 2. Update Auth profile
       await updateProfile(user, { displayName: name });
 
-      // 3. Create user document in Firestore, using the Auth UID as the document ID
       const userDocRef = doc(db, "users", user.uid);
       const userData = {
         name,
@@ -95,35 +129,36 @@ export default function RegisterPage() {
         since: new Date().toLocaleDateString('es-DO'),
         createdAt: serverTimestamp(),
       };
-      await setDoc(userDocRef, userData);
+      // Use setDoc with merge:true to create or update, preventing overwrites of existing data from a manager.
+      await setDoc(userDocRef, userData, { merge: true });
 
-
-      // 4. Call the Genkit flow to link equipment (secure server-side operation)
       const linkResult = await linkEquipmentToUser({ userId: user.uid, cedula });
 
       if (linkResult.success && linkResult.linkedCount > 0) {
           toast({
-              title: "¡Equipo vinculado!",
-              description: `Hemos encontrado y vinculado ${linkResult.linkedCount} equipo(s) a tu cuenta.`,
+              title: "¡Todo en orden!",
+              description: `Hemos encontrado y vinculado ${linkResult.linkedCount} equipo(s) a tu nueva cuenta.`,
           });
       }
       
-      // 5. Redirect to dashboard
       router.push('/dashboard');
 
     } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
+        const errorCode = error.code;
+        const errorMessage = error.message;
+         if (errorCode === 'auth/email-already-in-use') {
             toast({
                 variant: "destructive",
                 title: "Correo ya registrado",
-                description: "Este correo electrónico ya está en uso. Por favor, inicia sesión o utiliza otro correo.",
+                description: "Este correo ya tiene una cuenta. Por favor, inicia sesión.",
+                 action: (<Button variant="secondary" size="sm" asChild><Link href="/login">Iniciar Sesión</Link></Button>)
             });
         } else {
-            console.error("¡ERROR! Ocurrió un problema durante el registro:", error);
+            console.error("ERROR! Ocurrió un problema durante el registro:", error);
             toast({
                 variant: "destructive",
                 title: "Error de registro",
-                description: error.message,
+                description: errorMessage,
             });
         }
     } finally {
@@ -131,7 +166,7 @@ export default function RegisterPage() {
     }
   };
 
-  const CurrentIcon = steps[step - 1].icon;
+  const CurrentIcon = steps[step - 1]?.icon || Fingerprint;
 
   return (
     <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
@@ -157,7 +192,7 @@ export default function RegisterPage() {
                  <div className="space-y-4 text-center animate-in fade-in-20">
                     <CurrentIcon className="h-12 w-12 text-primary mx-auto" />
                     <CardTitle>Tu Cédula</CardTitle>
-                    <p className="text-muted-foreground text-sm">Comencemos con tu número de identificación.</p>
+                    <p className="text-muted-foreground text-sm">Ingresa tu número de identificación para comenzar. Si ya tienes solicitudes, las vincularemos a tu cuenta.</p>
                     <div className="space-y-2 text-left pt-2">
                         <Label htmlFor="cedula">Cédula de Identidad</Label>
                         <Input 
@@ -175,51 +210,45 @@ export default function RegisterPage() {
             
             {step === 2 && (
                 <div className="space-y-4 animate-in fade-in-20">
+                     <Alert>
+                        <User className="h-4 w-4" />
+                        <AlertTitle>¡Eres nuevo por aquí!</AlertTitle>
+                        <AlertDescription>
+                            Completa tus datos para crear tu perfil.
+                        </AlertDescription>
+                    </Alert>
                     <div className="space-y-2">
-                        <Label htmlFor="name">Nombre Completo</Label>
-                        <Input 
-                            id="name" 
-                            placeholder="Juan Pérez" 
-                            required 
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                        />
+                        <Label htmlFor="name"><User className="inline h-4 w-4 mr-1"/>Nombre Completo</Label>
+                        <Input id="name" placeholder="Juan Pérez" required value={name} onChange={(e) => setName(e.target.value)} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="email"><Mail className="inline h-4 w-4 mr-1"/>Correo Electrónico</Label>
+                        <Input id="email" type="email" placeholder="tu@correo.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="phone">Teléfono</Label>
-                        <Input
-                            id="phone"
-                            type="tel"
-                            placeholder="809-555-1234"
-                            required
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="email">Correo Electrónico</Label>
-                        <Input
-                            id="email"
-                            type="email"
-                            placeholder="tu@correo.com"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                        />
+                        <Label htmlFor="phone"><Phone className="inline h-4 w-4 mr-1"/>Teléfono</Label>
+                        <Input id="phone" type="tel" placeholder="809-555-1234" required value={phone} onChange={(e) => setPhone(e.target.value)} />
                     </div>
                 </div>
             )}
 
             {step === 3 && (
-                <div className="space-y-4 text-center animate-in fade-in-20">
-                    <CurrentIcon className="h-12 w-12 text-primary mx-auto" />
-                    <CardTitle>Crea tu Contraseña</CardTitle>
-                    <p className="text-muted-foreground text-sm">Elige una contraseña segura para tu cuenta.</p>
+                <div className="space-y-4 animate-in fade-in-20">
+                    {existingUser && (
+                        <Alert variant="default" className="bg-green-50 border-green-200">
+                            <UserCheck className="h-4 w-4 !text-green-700" />
+                            <AlertTitle className="text-green-800">¡Hola, {existingUser.name}!</AlertTitle>
+                            <AlertDescription className="text-green-900">
+                                Encontramos tu perfil. Tu correo es <b className="break-all">{existingUser.email}</b>. Solo necesitas crear una contraseña para acceder.
+                            </AlertDescription>
+                        </Alert>
+                    )}
                      <div className="space-y-2 text-left pt-2">
-                        <Label htmlFor="password">Contraseña</Label>
+                        <Label htmlFor="password"><Lock className="inline h-4 w-4 mr-1"/>Crea tu Contraseña</Label>
                         <Input 
                             id="password" 
-                            type="password" 
+                            type="password"
+                            placeholder="Elige una contraseña segura"
                             required 
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -239,11 +268,11 @@ export default function RegisterPage() {
               )}
             </div>
             <div>
-                 <Button onClick={handleRegister} type="button" disabled={loading}>
-                    {loading && step === steps.length ? (
-                        <Loader className="animate-spin" />
-                    ) : (
-                        step < steps.length ? <>Siguiente <ChevronRight className="ml-2" /></> : "Crear Cuenta"
+                 <Button onClick={handleRegister} type="button" disabled={loading || isSearching}>
+                    {loading && step === steps.length && <Loader className="animate-spin" />}
+                    {isSearching && step === 1 && <Loader className="animate-spin" />}
+                    {!loading && !isSearching && (
+                        step < steps.length ? <>Siguiente <ChevronRight className="ml-2" /></> : "Finalizar Registro"
                     )}
                  </Button>
             </div>
@@ -258,3 +287,5 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+    
