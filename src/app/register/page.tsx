@@ -24,12 +24,20 @@ import { linkEquipmentToUser } from "@/ai/flows/link-equipment-flow";
 import { LogoIcon } from "@/components/shared/logo";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 const steps = [
     { id: 1, title: "Identificación", icon: Fingerprint },
     { id: 2, title: "Datos de Contacto", icon: User },
     { id: 3, title: "Seguridad", icon: Lock },
 ]
+
+interface ExistingUser {
+    id: string; // Firestore document ID, which is the Auth UID
+    name: string;
+    email: string;
+}
+
 
 export default function RegisterPage() {
   const [step, setStep] = useState(1);
@@ -42,7 +50,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  const [existingUser, setExistingUser] = useState<{name: string, email: string} | null>(null);
+  const [existingUser, setExistingUser] = useState<ExistingUser | null>(null);
 
   const router = useRouter();
   const { toast } = useToast();
@@ -58,17 +66,20 @@ export default function RegisterPage() {
         const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty) {
-            const clientDoc = querySnapshot.docs[0].data();
-            setExistingUser({ name: clientDoc.name, email: clientDoc.email });
-            setName(clientDoc.name);
-            setEmail(clientDoc.email);
-            setPhone(clientDoc.phone || '');
-            // Skip the contact details step
-            setStep(3); 
+            const clientDoc = querySnapshot.docs[0];
+            const clientData = clientDoc.data();
+            setExistingUser({ 
+                id: clientDoc.id, 
+                name: clientData.name, 
+                email: clientData.email 
+            });
+            setName(clientData.name);
+            setEmail(clientData.email);
+            setPhone(clientData.phone || '');
+            setStep(3); // Skip to password step
         } else {
             setExistingUser(null);
-            // Proceed to the next step to enter details
-            setStep(2);
+            setStep(2); // Proceed to enter details
         }
 
     } catch (error: any) {
@@ -102,67 +113,79 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    if (!email || !password || !cedula) {
-        toast({
-            variant: "destructive",
-            title: "Faltan datos cruciales",
-            description: "El correo, la contraseña y la cédula son requeridos."
-        });
-        setLoading(false);
-        return;
-    }
-    
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      await updateProfile(user, { displayName: name });
-
-      const userDocRef = doc(db, "users", user.uid);
-      const userData = {
-        name,
-        email,
-        cedula,
-        phone,
-        role: "Cliente",
-        status: "Activo",
-        since: new Date().toLocaleDateString('es-DO'),
-        createdAt: serverTimestamp(),
-      };
-      // Use setDoc with merge:true to create or update, preventing overwrites of existing data from a manager.
-      await setDoc(userDocRef, userData, { merge: true });
-
-      const linkResult = await linkEquipmentToUser({ userId: user.uid, cedula });
-
-      if (linkResult.success && linkResult.linkedCount > 0) {
-          toast({
-              title: "¡Todo en orden!",
-              description: `Hemos encontrado y vinculado ${linkResult.linkedCount} equipo(s) a tu nueva cuenta.`,
-          });
-      }
-      
-      router.push('/dashboard');
-
-    } catch (error: any) {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-         if (errorCode === 'auth/email-already-in-use') {
-            toast({
-                variant: "destructive",
-                title: "Correo ya registrado",
-                description: "Este correo ya tiene una cuenta. Por favor, inicia sesión.",
-                 action: (<Button variant="secondary" size="sm" asChild><Link href="/login">Iniciar Sesión</Link></Button>)
-            });
-        } else {
-            console.error("ERROR! Ocurrió un problema durante el registro:", error);
-            toast({
-                variant: "destructive",
-                title: "Error de registro",
-                description: errorMessage,
-            });
+    if (existingUser) {
+        // --- Logic for existing user activation ---
+        if (!password) {
+            toast({ variant: "destructive", title: "Contraseña requerida", description: "Por favor, establece una contraseña." });
+            setLoading(false);
+            return;
         }
-    } finally {
-      setLoading(false);
+        try {
+            const functions = getFunctions();
+            const updateUserByAdmin = httpsCallable(functions, 'updateUserByAdmin');
+            
+            // We call this function which requires admin privileges on the backend
+            // to set the password for an existing user.
+            // This is a temporary measure. A better solution would be a dedicated "account activation" function.
+            await updateUserByAdmin({
+                userId: existingUser.id,
+                password: password
+            });
+
+            toast({ title: "Cuenta Activada", description: "Tu contraseña ha sido establecida. Ahora puedes iniciar sesión." });
+            router.push('/login');
+
+        } catch (error: any) {
+            console.error("Error activating account:", error);
+            toast({ variant: "destructive", title: "Error de Activación", description: `No se pudo establecer la contraseña: ${error.message}` });
+        } finally {
+            setLoading(false);
+        }
+
+    } else {
+        // --- Logic for new user registration ---
+         if (!email || !password || !cedula) {
+            toast({ variant: "destructive", title: "Faltan datos", description: "Correo, contraseña y cédula son requeridos." });
+            setLoading(false);
+            return;
+        }
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+            
+            await updateProfile(user, { displayName: name });
+
+            const userDocRef = doc(db, "users", user.uid);
+            await setDoc(userDocRef, {
+                name,
+                email,
+                cedula,
+                phone,
+                role: "Cliente",
+                status: "Activo",
+                since: new Date().toLocaleDateString('es-DO'),
+                createdAt: serverTimestamp(),
+            });
+
+            const linkResult = await linkEquipmentToUser({ userId: user.uid, cedula });
+            if (linkResult.success && linkResult.linkedCount > 0) {
+                toast({ title: "¡Todo en orden!", description: `Hemos vinculado ${linkResult.linkedCount} equipo(s) a tu cuenta.` });
+            }
+            
+            router.push('/dashboard');
+
+        } catch (error: any) {
+             const errorCode = error.code;
+             const errorMessage = error.message;
+             if (errorCode === 'auth/email-already-in-use') {
+                toast({ variant: "destructive", title: "Correo ya registrado", description: "Este correo ya tiene una cuenta. Por favor, inicia sesión.", action: (<Button variant="secondary" size="sm" asChild><Link href="/login">Iniciar Sesión</Link></Button>) });
+            } else {
+                console.error("Error during registration:", error);
+                toast({ variant: "destructive", title: "Error de registro", description: errorMessage });
+            }
+        } finally {
+            setLoading(false);
+        }
     }
   };
 
@@ -269,11 +292,9 @@ export default function RegisterPage() {
             </div>
             <div>
                  <Button onClick={handleRegister} type="button" disabled={loading || isSearching}>
-                    {loading && step === steps.length && <Loader className="animate-spin" />}
-                    {isSearching && step === 1 && <Loader className="animate-spin" />}
-                    {!loading && !isSearching && (
-                        step < steps.length ? <>Siguiente <ChevronRight className="ml-2" /></> : "Finalizar Registro"
-                    )}
+                    {(loading || isSearching) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {step < steps.length ? "Siguiente" : (existingUser ? "Activar Cuenta" : "Finalizar Registro")}
+                    {step < steps.length && !loading && !isSearching && <ChevronRight className="ml-2" />}
                  </Button>
             </div>
         </CardFooter>
@@ -287,5 +308,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
-    
