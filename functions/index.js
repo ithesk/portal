@@ -499,33 +499,28 @@ exports.runIdentityCheck = regionalFunctions.https.onCall(async (data, context) 
 
 
 exports.listAllUsers = regionalFunctions.https.onCall(async (data, context) => {
-  // Check if the user is authenticated and is an admin
+  // 1. Security Check: Ensure caller is an Admin
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
   }
-
-  const callerUid = context.auth.uid;
-  const userDoc = await db.collection('users').doc(callerUid).get();
-
-  if (!userDoc.exists || userDoc.data().role !== 'Admin') {
+  const callerDoc = await db.collection('users').doc(context.auth.uid).get();
+  if (!callerDoc.exists || callerDoc.data().role !== 'Admin') {
     throw new functions.https.HttpsError('permission-denied', 'Only admins can list users.');
   }
 
-  // If the user is an admin, proceed to list all users
+  // 2. Fetch all users from Firestore
   try {
-    const listUsersResult = await admin.auth().listUsers(1000); // 1000 is the max limit per page
-    
-    // For simplicity, we get users from Firestore collection to have all data like role, name, etc.
     const usersCollection = await db.collection('users').get();
+    // Map Firestore docs to an array, importantly using the document ID as the main `id` field
     const users = usersCollection.docs.map(doc => ({
-      id: doc.id,
+      id: doc.id, // Using Firestore document ID
       ...doc.data(),
     }));
 
     return { users };
   } catch (error) {
-    console.error('Error listing users:', error);
-    throw new functions.https.HttpsError('internal', 'Unable to list users', error.message);
+    console.error('Error listing users from Firestore:', error);
+    throw new functions.https.HttpsError('internal', 'Unable to list users from Firestore.', error.message);
   }
 });
 
@@ -554,6 +549,7 @@ exports.updateUserByAdmin = regionalFunctions.https.onCall(async (data, context)
     const authUpdates = {};
     const firestoreUpdates = {};
 
+    // Only add fields to update objects if they were provided
     if (email) authUpdates.email = email;
     if (password) {
         if (password.length < 6) {
@@ -568,17 +564,21 @@ exports.updateUserByAdmin = regionalFunctions.https.onCall(async (data, context)
     if (phone) firestoreUpdates.phone = phone;
     if (role) firestoreUpdates.role = role;
     
-
     // 3. Perform updates
-    // Update Firebase Auth user
+    console.log(`[ADMIN_UPDATE] Attempting to update user with UID: ${userId}`);
+
+    // Update Firebase Auth user only if there are changes for Auth
     if (Object.keys(authUpdates).length > 0) {
       await admin.auth().updateUser(userId, authUpdates);
+      console.log(`[ADMIN_UPDATE] Firebase Auth record for ${userId} updated.`);
     }
     
-    // Update Firestore user document
+    // Update Firestore user document only if there are changes for Firestore
     if (Object.keys(firestoreUpdates).length > 0) {
+      // The document ID in the 'users' collection is the UID from Auth
       const userDocRef = db.collection('users').doc(userId);
       await userDocRef.update(firestoreUpdates);
+      console.log(`[ADMIN_UPDATE] Firestore document for ${userId} updated.`);
     }
 
     console.log(`Admin ${context.auth.uid} successfully updated user ${userId}.`);
@@ -587,6 +587,10 @@ exports.updateUserByAdmin = regionalFunctions.https.onCall(async (data, context)
   } catch (error) {
     console.error(`Error updating user ${userId} by admin ${context.auth.uid}:`, error);
     if (error.code && error.code.startsWith('auth/')) {
+        // Provide more specific feedback for common auth errors
+        if (error.code === 'auth/user-not-found') {
+            throw new functions.https.HttpsError('not-found', `No se encontró un usuario de autenticación con el ID: ${userId}.`);
+        }
         throw new functions.https.HttpsError('invalid-argument', error.message);
     }
     throw new functions.https.HttpsError('internal', 'No se pudo actualizar el usuario.', error.message);
@@ -635,6 +639,8 @@ exports.saveFinancingSettings = regionalFunctions.https.onCall(async (data, cont
         throw new functions.https.HttpsError("internal", "Could not save settings.");
     }
 });
+
+    
 
     
 

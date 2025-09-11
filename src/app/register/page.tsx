@@ -83,7 +83,8 @@ export default function RegisterPage() {
       // 2. Update Auth profile
       await updateProfile(user, { displayName: name });
 
-      // 3. Create user document in Firestore
+      // 3. Create user document in Firestore, using the Auth UID as the document ID
+      const userDocRef = doc(db, "users", user.uid);
       const userData = {
         name,
         email,
@@ -94,7 +95,8 @@ export default function RegisterPage() {
         since: new Date().toLocaleDateString('es-DO'),
         createdAt: serverTimestamp(),
       };
-      await setDoc(doc(db, "users", user.uid), userData);
+      await setDoc(userDocRef, userData);
+
 
       // 4. Call the Genkit flow to link equipment (secure server-side operation)
       const linkResult = await linkEquipmentToUser({ userId: user.uid, cedula });
@@ -256,3 +258,5 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+    

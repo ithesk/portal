@@ -40,7 +40,8 @@ import { useToast } from "@/hooks/use-toast";
 
 
 interface User {
-  id: string;
+  id: string; // This will now be the Firestore Document ID
+  uid: string; // This is the Firebase Auth UID
   name: string;
   email: string;
   phone: string;
@@ -140,7 +141,8 @@ export default function UsersPage() {
       const updateUserByAdmin = httpsCallable(functions, 'updateUserByAdmin');
       
       const payload: any = {
-        userId: selectedUser.id,
+        // Use the correct Auth UID for the operation
+        userId: selectedUser.id, 
         name: editFormData.name,
         email: editFormData.email,
         phone: editFormData.phone,
