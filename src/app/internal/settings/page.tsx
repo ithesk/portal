@@ -17,11 +17,18 @@ import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { backfillRequestUserId, BackfillOutput } from "@/ai/flows/backfill-request-user-id-flow";
 
 interface FinancingSettings {
     interestRate: number; // Stored as a decimal, e.g., 0.525 for 52.5%
 }
+
+interface BackfillOutput {
+    success: boolean;
+    message: string;
+    requestsChecked?: number;
+    requestsUpdated?: number;
+}
+
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<FinancingSettings>({ interestRate: 0 });
@@ -93,15 +100,20 @@ export default function SettingsPage() {
     setIsBackfilling(true);
     setBackfillResult(null);
     try {
-      const result = await backfillRequestUserId();
-      setBackfillResult(result);
-      if (result.success) {
-        toast({ title: "Proceso completado", description: result.message });
+      const functions = getFunctions();
+      const backfillFunction = httpsCallable(functions, 'backfillRequestUserIds');
+      const result: any = await backfillFunction();
+      
+      setBackfillResult(result.data as BackfillOutput);
+
+      if (result.data.success) {
+        toast({ title: "Proceso completado", description: result.data.message });
       } else {
-        toast({ variant: "destructive", title: "Error en el proceso", description: result.message });
+        toast({ variant: "destructive", title: "Error en el proceso", description: result.data.message });
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error Crítico", description: "No se pudo ejecutar el flujo de corrección." });
+      console.error("Error calling backfill function:", err);
+      toast({ variant: "destructive", title: "Error Crítico", description: `No se pudo ejecutar la función: ${err.message}` });
     } finally {
       setIsBackfilling(false);
     }

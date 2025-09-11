@@ -686,6 +686,77 @@ exports.saveFinancingSettings = regionalFunctions.https.onCall(async (data, cont
     }
 });
 
+// =======================================================================================
+// SYSTEM TOOLS / BACKFILL FUNCTIONS
+// =======================================================================================
+exports.backfillRequestUserIds = regionalFunctions.https.onCall(async (data, context) => {
+    // Security Check: Only allow admins to run this
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Debes estar autenticado para realizar esta acción.');
+    }
+    const callerDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (!callerDoc.exists || callerDoc.data().role !== 'Admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Solo los administradores pueden ejecutar esta herramienta.');
+    }
+
+    console.log("BACKFILL_FUNCTION: Starting backfill process...");
+    const batch = db.batch();
+    let requestsChecked = 0;
+    let requestsUpdated = 0;
+
+    try {
+        // 1. Get all users and map their cedula to their UID (which is the doc ID)
+        console.log("BACKFILL_FUNCTION: Fetching users from 'users' collection...");
+        const usersRef = db.collection("users");
+        const usersSnapshot = await usersRef.get();
+        const cedulaToUserIdMap = new Map();
+        usersSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.cedula) {
+                cedulaToUserIdMap.set(data.cedula, doc.id);
+            }
+        });
+        console.log(`BACKFILL_FUNCTION: Found ${cedulaToUserIdMap.size} users with cedulas.`);
+
+        // 2. Get all requests that are missing a userId
+        console.log("BACKFILL_FUNCTION: Fetching requests missing a 'userId'...");
+        const requestsRef = db.collection("requests");
+        // Firestore doesn't have a direct "is not null" or "field does not exist" query
+        // so we fetch all and filter locally. For very large collections, this would be inefficient.
+        const requestsSnapshot = await requestsRef.get();
+        requestsChecked = requestsSnapshot.size;
+
+        requestsSnapshot.forEach(doc => {
+            const request = doc.data();
+            // Find requests where userId is missing, null, or an empty string, but cedula is present
+            if ((!request.userId || request.userId === "") && request.cedula) {
+                const userId = cedulaToUserIdMap.get(request.cedula);
+                if (userId) {
+                    console.log(`BACKFILL_FUNCTION: Match found! Request [${doc.id}] will be updated with userId [${userId}].`);
+                    const requestToUpdateRef = requestsRef.doc(doc.id);
+                    batch.update(requestToUpdateRef, { userId: userId });
+                    requestsUpdated++;
+                }
+            }
+        });
+
+        if (requestsUpdated > 0) {
+            console.log(`BACKFILL_FUNCTION: Committing batch to update ${requestsUpdated} requests.`);
+            await batch.commit();
+        }
+
+        const message = `Backfill completo. Se revisaron ${requestsChecked} solicitudes, se actualizaron ${requestsUpdated}.`;
+        console.log(`BACKFILL_FUNCTION: ${message}`);
+        return { success: true, message, requestsChecked, requestsUpdated };
+
+    } catch (error) {
+        console.error("BACKFILL_FUNCTION: CRITICAL - An error occurred during the backfill process:", error);
+        return {
+            success: false,
+            message: `Error durante la corrección: ${error.message}`,
+        };
+    }
+});
     
 
     
@@ -695,3 +766,4 @@ exports.saveFinancingSettings = regionalFunctions.https.onCall(async (data, cont
     
 
     
+
