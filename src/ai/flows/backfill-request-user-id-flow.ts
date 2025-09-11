@@ -42,6 +42,7 @@ const backfillRequestUserIdFlow = ai.defineFlow(
 
     try {
       // 1. Get all users and map their cedula to their UID
+      console.log("BACKFILL_FLOW: Attempting to fetch users from 'users' collection...");
       const usersRef = collection(db, "users");
       const usersSnapshot = await getDocs(usersRef);
       const cedulaToUserIdMap = new Map<string, string>();
@@ -51,18 +52,15 @@ const backfillRequestUserIdFlow = ai.defineFlow(
           cedulaToUserIdMap.set(data.cedula, doc.id);
         }
       });
-      console.log(`BACKFILL_FLOW: Found ${cedulaToUserIdMap.size} users with cedulas.`);
+      console.log(`BACKFILL_FLOW: Successfully fetched ${cedulaToUserIdMap.size} users with cedulas.`);
 
-      // 2. Get all requests that are missing the userId field.
-      // Firestore doesn't have a "where field does not exist" query, so we query for a known-to-exist field
-      // and then filter in code. This is less efficient but necessary. A better way is to query
-      // for a field that is unlikely to be set on old docs, like `where('userId', '==', null)` if that works for your rules.
-      // For this case, we'll get all and filter locally.
+      // 2. Get all requests. We will filter locally.
+      console.log("BACKFILL_FLOW: Attempting to fetch all requests from 'requests' collection...");
       const requestsRef = collection(db, "requests");
       const requestsSnapshot = await getDocs(requestsRef);
       
       requestsChecked = requestsSnapshot.size;
-      console.log(`BACKFILL_FLOW: Found ${requestsChecked} total requests to check.`);
+      console.log(`BACKFILL_FLOW: Successfully fetched ${requestsChecked} total requests to check.`);
 
       requestsSnapshot.forEach(doc => {
         const request = doc.data();
@@ -78,8 +76,9 @@ const backfillRequestUserIdFlow = ai.defineFlow(
       });
 
       if (requestsUpdated > 0) {
-        console.log(`BACKFILL_FLOW: Committing batch to update ${requestsUpdated} requests.`);
+        console.log(`BACKFILL_FLOW: Found ${requestsUpdated} requests to update. Committing batch...`);
         await batch.commit();
+        console.log("BACKFILL_FLOW: Batch commit successful.");
       } else {
         console.log("BACKFILL_FLOW: No requests needed an update.");
       }
@@ -94,7 +93,9 @@ const backfillRequestUserIdFlow = ai.defineFlow(
       };
 
     } catch (error: any) {
-      console.error("BACKFILL_FLOW: CRITICAL - Error during backfill process: ", error);
+      console.error("BACKFILL_FLOW: CRITICAL - An error occurred during the backfill process.");
+      console.error("BACKFILL_FLOW: Error Message:", error.message);
+      console.error("BACKFILL_FLOW: Error Details:", error);
       return {
         success: false,
         message: `Error during backfill: ${error.message}`,
