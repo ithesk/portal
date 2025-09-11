@@ -576,6 +576,10 @@ exports.createNewUserByAdmin = regionalFunctions.https.onCall(async (data, conte
 });
 
 exports.updateUserByAdmin = regionalFunctions.https.onCall(async (data, context) => {
+  // **DIAGNÓSTICO**: Log the data received by the function.
+  console.log(`[ADMIN_UPDATE_LOG] Function received call with data:`, JSON.stringify(data));
+  console.log(`[ADMIN_UPDATE_LOG] Caller auth context:`, JSON.stringify(context.auth));
+
   // 1. Security Check: Ensure caller is an Admin
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');

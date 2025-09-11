@@ -68,6 +68,10 @@ export default function RegisterPage() {
         if (!querySnapshot.empty) {
             const clientDoc = querySnapshot.docs[0];
             const clientData = clientDoc.data();
+            
+            // **DIAGNÓSTICO**: Verificamos que el ID del documento es el que esperamos
+            console.log("Found existing user document. ID:", clientDoc.id, "Data:", clientData);
+
             setExistingUser({ 
                 id: clientDoc.id, // This IS the auth UID
                 name: clientData.name, 
@@ -120,6 +124,13 @@ export default function RegisterPage() {
             setLoading(false);
             return;
         }
+
+        // **DIAGNÓSTICO**: Log del objeto exacto que se va a enviar
+        console.log("Attempting to activate existing user. Sending this object to Cloud Function:", {
+            userId: existingUser.id,
+            password: "HIDDEN_FOR_LOGS"
+        });
+
         try {
             const functions = getFunctions();
             const updateUserByAdmin = httpsCallable(functions, 'updateUserByAdmin');
