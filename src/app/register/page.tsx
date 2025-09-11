@@ -19,7 +19,7 @@ import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp, getDocs, query, where, collection } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { Loader, ChevronLeft, ChevronRight, User, Fingerprint, Lock, Phone, Mail, UserCheck, AlertCircle } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, User, Fingerprint, Lock, Phone, Mail, UserCheck, AlertCircle } from "lucide-react";
 import { linkEquipmentToUser } from "@/ai/flows/link-equipment-flow";
 import { LogoIcon } from "@/components/shared/logo";
 import { Progress } from "@/components/ui/progress";
@@ -126,7 +126,6 @@ export default function RegisterPage() {
             
             // We call this function which requires admin privileges on the backend
             // to set the password for an existing user.
-            // This is a temporary measure. A better solution would be a dedicated "account activation" function.
             await updateUserByAdmin({
                 userId: existingUser.id,
                 password: password
